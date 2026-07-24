@@ -1,10 +1,10 @@
 # Dependencies
 node_modules
-server/node_modules
+backend/node_modules
 
 # Build outputs
 dist
-server/dist
+backend/dist
 
 # Environment & local
 .env
@@ -16,5 +16,5 @@ edited.mov
 
 # Vite cache
 .vite
-server/.vite
-
+backend/.vite
+*.zip
