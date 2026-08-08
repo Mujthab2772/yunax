@@ -12,8 +12,8 @@ export class PrismaUserRepository implements IUserRepository {
         name: user.name,
         role: user.role,
         isBanned: user.isBanned,
-        addresses: user.addresses
-      },
+        addresses: user.addresses ? user.addresses : undefined
+      } as any,
       create: {
         id: user.id,
         email: user.email,
@@ -21,8 +21,8 @@ export class PrismaUserRepository implements IUserRepository {
         name: user.name,
         role: user.role,
         isBanned: user.isBanned,
-        addresses: user.addresses
-      }
+        addresses: user.addresses ? user.addresses : undefined
+      } as any
     });
     return this.mapToEntity(record);
   }
