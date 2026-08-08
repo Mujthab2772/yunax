@@ -6,6 +6,7 @@ import { Heart, Star } from 'lucide-react';
 import { API } from './lib/api';
 import { defaultProducts, findDefaultProductBySlug } from './lib/defaultProducts';
 import { addToWishlist, getAuthToken, loadWishlist, removeFromWishlist } from './lib/wishlist';
+import { addToCart } from './lib/cart';
 
 const specLabels = {
   brand: 'Brand',
@@ -65,7 +66,7 @@ const ProductDetailPage = ({ slug }) => {
     return matching.slice(0, 4);
   };
 
-  const addProductToCart = async (item) => {
+  const handleAddToCart = async (item) => {
     if (item.stock === 0) return false;
     try {
       const res = await fetch(`${API}/products/${item.slug}`);
@@ -76,41 +77,16 @@ const ProductDetailPage = ({ slug }) => {
         setProduct((prev) => ({ ...prev, stock: freshProduct.stock }));
       }
 
-      const raw = localStorage.getItem('cartItems');
-      const existing = raw ? JSON.parse(raw) : [];
-      const already = existing.find((entry) => entry.slug === item.slug);
-      
       if (freshProduct.stock !== undefined && freshProduct.stock !== null) {
         if (freshProduct.stock === 0) {
           setToastError(`Sorry, ${item.name} is now out of stock`);
           setTimeout(() => setToastError(''), 2000);
           return false;
         }
-        if (already && already.qty >= freshProduct.stock) {
-          setToastError(`You cannot add more than ${freshProduct.stock} items`);
-          setTimeout(() => setToastError(''), 1800);
-          return false;
-        }
       }
 
-      if (already) {
-        setToastError('Item already in cart');
-        setTimeout(() => setToastError(''), 1800);
-        return false;
-      } else {
-        existing.push({
-          slug: item.slug,
-          productId: freshProduct._id || freshProduct.id || item._id || item.id,
-          name: freshProduct.name || item.name,
-          spec: freshProduct.description || freshProduct.category || item.description || item.category,
-          category: freshProduct.category || item.category,
-          priceCents: freshProduct.priceCents || item.priceCents || 0,
-          qty: 1,
-          stock: freshProduct.stock,
-        });
-      }
-      localStorage.setItem('cartItems', JSON.stringify(existing));
-      window.dispatchEvent(new Event('cart-updated'));
+      await addToCart(freshProduct.id || freshProduct._id || item.id || item._id, 1);
+
       setToast(`${item.name} added to cart`);
       setTimeout(() => setToast(''), 1500);
       return true;
@@ -321,10 +297,6 @@ const ProductDetailPage = ({ slug }) => {
     setSelectedImageIndex((current) => (current + 1) % galleryImages.length);
   };
 
-  const addToCart = () => {
-    addProductToCart(product);
-  };
-
   return (
     <div className="bg-white text-slate-900 min-h-screen">
       <Navbar />
@@ -456,7 +428,7 @@ const ProductDetailPage = ({ slug }) => {
                     ? 'bg-slate-300 text-slate-500 cursor-not-allowed' 
                     : 'bg-slate-900 text-white hover:bg-slate-800'
                 }`}
-                onClick={addToCart}
+                onClick={() => handleAddToCart(product)}
                 disabled={product.stock === 0}
               >
                 {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
@@ -468,7 +440,7 @@ const ProductDetailPage = ({ slug }) => {
                     : 'border-slate-200 text-slate-800 hover:border-slate-300'
                 }`}
                 onClick={() => {
-                  addToCart();
+                  handleAddToCart(product);
                   window.location.href = '/cart';
                 }}
                 disabled={product.stock === 0}

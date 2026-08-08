@@ -29,7 +29,7 @@ const WishlistPage = () => {
   const removeItem = async (item) => {
     try {
       setActionSlug(item.slug);
-      setItems(await removeFromWishlist(item.slug));
+      setItems(await removeFromWishlist(item));
       setMessage(`${item.name || 'Item'} removed from wishlist.`);
     } catch (err) {
       setMessage(err.message || 'Could not remove item.');

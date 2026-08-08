@@ -4,7 +4,7 @@ import { CheckCircle2, CreditCard, Loader2, MapPin, ShieldCheck, ShoppingBag, Sh
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import { API } from './lib/api';
-import { getStoredCartItems, reconcileStoredCartWithCatalog, saveStoredCartItems } from './lib/cart';
+import { fetchCart, updateCartItem, removeFromCart } from './lib/cart';
 import { getAccountKey, migrateAddressBook, getStoredUser, saveAddressBook, saveStoredUser } from './lib/account';
 import { addToWishlist } from './lib/wishlist';
 
@@ -85,7 +85,7 @@ const clearCustomerSession = () => {
 };
 
 const CartPage = () => {
-  const [items, setItems] = useState(getStoredCartItems);
+  const [items, setItems] = useState([]);
   const [message, setMessage] = useState('');
   const [isPaying, setIsPaying] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(true);
@@ -102,21 +102,13 @@ const CartPage = () => {
 
 
   useEffect(() => {
-    saveStoredCartItems(items);
-  }, [items]);
-
-  useEffect(() => {
     let active = true;
 
     const refreshCart = async () => {
-      const previousItems = getStoredCartItems();
       setIsRefreshing(true);
-      const nextItems = await reconcileStoredCartWithCatalog();
+      const nextItems = await fetchCart();
       if (!active) return;
       setItems(nextItems);
-      if (previousItems.length > 0 && nextItems.length < previousItems.length) {
-        setMessage('Some unavailable products were removed from your cart.');
-      }
       setIsRefreshing(false);
     };
 
@@ -292,37 +284,46 @@ const CartPage = () => {
   };
 
   const updateQty = async (slug, delta) => {
-    if (delta > 0) {
-      try {
-        const res = await fetch(`${API}/products/${slug}`);
-        if (res.ok) {
-          const freshProduct = await res.json();
-          const currentItem = items.find(i => i.slug === slug);
-          if (freshProduct.stock !== undefined && currentItem) {
-            if (currentItem.qty >= freshProduct.stock) {
-              setMessage(`Only ${freshProduct.stock} units available for this item.`);
-              return;
-            }
+    const currentItem = items.find((i) => i.slug === slug);
+    if (!currentItem) return;
+    const newQty = Math.max(0, (currentItem.qty || 1) + delta);
+    
+    try {
+      if (newQty === 0) {
+        await removeItem(slug);
+        return;
+      }
+      
+      const res = await fetch(`${API}/products/${slug}`);
+      if (res.ok) {
+        const freshProduct = await res.json();
+        if (freshProduct.stock !== undefined) {
+          if (newQty > freshProduct.stock) {
+            setMessage(`Only ${freshProduct.stock} units available for this item.`);
+            return;
           }
         }
-      } catch (err) {
-        console.error('Could not verify stock', err);
       }
+      
+      await updateCartItem(currentItem.productId, newQty);
+      const nextItems = await fetchCart();
+      setItems(nextItems);
+    } catch (err) {
+      console.error('Could not update cart quantity', err);
     }
-
-    setItems((list) =>
-      list.map((item) => {
-        if (item.slug === slug) {
-          const newQty = Math.max(1, (item.qty || 1) + delta);
-          const finalQty = item.stock !== undefined && item.stock !== null ? Math.min(newQty, item.stock) : newQty;
-          return { ...item, qty: finalQty };
-        }
-        return item;
-      })
-    );
   };
 
-  const removeItem = (slug) => setItems((list) => list.filter((item) => item.slug !== slug));
+  const removeItem = async (slug) => {
+    const currentItem = items.find((i) => i.slug === slug);
+    if (!currentItem) return;
+    try {
+      await removeFromCart(currentItem.productId);
+      const nextItems = await fetchCart();
+      setItems(nextItems);
+    } catch (err) {
+      console.error('Could not remove item from cart', err);
+    }
+  };
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -415,7 +416,6 @@ const CartPage = () => {
 
       if (hydratedItems.length !== items.length) {
         setItems(hydratedItems);
-        saveStoredCartItems(hydratedItems);
         throw new Error('Some items were removed because they are no longer available. Please review your cart and try again.');
       }
 

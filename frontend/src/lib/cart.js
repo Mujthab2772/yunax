@@ -1,87 +1,90 @@
 import { API } from './api';
 
-export const getStoredCartItems = () => {
+// Fetch the authoritative cart from the backend
+export const fetchCart = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) return [];
+
+  // Migration step: if there's a legacy localStorage cart, migrate it to the backend!
+  const legacyRaw = localStorage.getItem('cartItems');
+  if (legacyRaw) {
+    try {
+      const legacyItems = JSON.parse(legacyRaw);
+      if (Array.isArray(legacyItems) && legacyItems.length > 0) {
+        // Send all to backend sequentially to migrate
+        for (const item of legacyItems) {
+          const productId = item.productId || item._id || item.id;
+          if (productId) {
+            await fetch(`${API}/cart/items`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ productId, quantity: item.qty || 1 })
+            }).catch(() => {});
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    // Delete legacy cart so we never migrate it again
+    localStorage.removeItem('cartItems');
+  }
+
   try {
-    const raw = localStorage.getItem('cartItems');
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
+    const res = await fetch(`${API}/cart`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.data?.items || []).map(item => ({
+      productId: item.productId,
+      qty: item.quantity,
+      priceAtTimeOfAdding: item.priceAtTimeOfAdding,
+      name: item.product?.name,
+      stock: item.product?.stock,
+      images: item.product?.images || [],
+      priceCents: item.product?.priceCents,
+      category: item.product?.category,
+      slug: item.product?.slug,
+      spec: item.product?.description
+    }));
+  } catch (err) {
+    console.error('Failed to fetch cart:', err);
     return [];
   }
 };
 
-export const saveStoredCartItems = (items = []) => {
-  try {
-    localStorage.setItem('cartItems', JSON.stringify(items));
-    window.dispatchEvent(new Event('cart-updated'));
-  } catch (err) {
-    console.error(err);
+export const addToCart = async (productId, quantity = 1) => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    // If not logged in, they can't use the cart
+    window.location.href = '/login';
+    return;
   }
+  
+  await fetch(`${API}/cart/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, quantity })
+  });
+  window.dispatchEvent(new Event('cart-updated'));
 };
 
-export const addProductToStoredCart = (product) => {
-  const existing = getStoredCartItems();
-  const already = existing.find((item) => item.slug === product.slug);
-
-  if (already) {
-    already.qty = (already.qty || 1) + 1;
-  } else {
-    existing.push({
-      slug: product.slug,
-      productId: product.productId || product._id || product.id,
-      name: product.name,
-      spec: product.spec || product.description || product.category,
-      category: product.category,
-      images: Array.isArray(product.images) ? product.images.filter(Boolean) : [],
-      priceCents: product.priceCents || 0,
-      qty: 1,
-      stock: product.stock,
-    });
-  }
-
-  saveStoredCartItems(existing);
+export const updateCartItem = async (productId, quantity) => {
+  await fetch(`${API}/cart/items/${productId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quantity })
+  });
+  window.dispatchEvent(new Event('cart-updated'));
 };
 
-export const reconcileStoredCartWithCatalog = async () => {
-  const currentItems = getStoredCartItems();
-  if (!currentItems.length) return [];
+export const removeFromCart = async (productId) => {
+  await fetch(`${API}/cart/items/${productId}`, {
+    method: 'DELETE'
+  });
+  window.dispatchEvent(new Event('cart-updated'));
+};
 
-  try {
-    const res = await fetch(`${API}/products`);
-    if (!res.ok) throw new Error('Failed to load products');
-    const products = await res.json();
-    const productMap = new Map(
-      (Array.isArray(products) ? products : []).map((product) => [product.slug, product])
-    );
-
-    const validItems = currentItems
-      .map((item) => {
-        const product = productMap.get(item.slug);
-        if (!product) return null;
-        return {
-          ...item,
-          productId: product._id || product.id || item.productId,
-          name: product.name || item.name,
-          spec: product.description || product.category || item.spec,
-          category: product.category || item.category,
-          images: Array.isArray(product.images) ? product.images.filter(Boolean) : item.images || [],
-          priceCents: product.priceCents ?? item.priceCents ?? 0,
-          qty: Math.max(1, item.qty || 1),
-          stock: product.stock,
-        };
-      })
-      .filter(Boolean);
-
-    const changed =
-      validItems.length !== currentItems.length ||
-      validItems.some((item, index) => JSON.stringify(item) !== JSON.stringify(currentItems[index]));
-
-    if (changed) {
-      saveStoredCartItems(validItems);
-    }
-
-    return validItems;
-  } catch (e) {
-    return currentItems;
-  }
+export const clearCart = async () => {
+  await fetch(`${API}/cart`, { method: 'DELETE' });
+  window.dispatchEvent(new Event('cart-updated'));
 };

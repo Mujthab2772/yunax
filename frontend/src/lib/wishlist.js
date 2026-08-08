@@ -1,5 +1,5 @@
 import { API } from './api';
-import { addProductToStoredCart } from './cart';
+import { addToCart } from './cart';
 
 export const getAuthToken = () => {
   try {
@@ -48,9 +48,7 @@ export const removeFromWishlist = async (product) => {
 };
 
 export const moveWishlistItemToCart = async (item) => {
-  addProductToStoredCart({
-    ...item,
-    images: item.image ? [item.image] : item.images || [],
-  });
+  const id = item._id || item.id || item.productId;
+  await addToCart(id, 1);
   return removeFromWishlist(item);
 };

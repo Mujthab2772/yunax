@@ -6,6 +6,7 @@ import Reveal from './components/motion/Reveal';
 import { Heart, LayoutGrid, Search, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
 import { API } from './lib/api';
 import { defaultProducts } from './lib/defaultProducts';
+import { addToCart } from './lib/cart';
 import Tilt from './components/ui/Tilt';
 import { addToWishlist, getAuthToken, loadWishlist, removeFromWishlist } from './lib/wishlist';
 
@@ -93,7 +94,7 @@ const ProductsPage = () => {
     setSort('featured');
   };
 
-  const addToCart = async (product) => {
+  const handleAddToCart = async (product) => {
     if (product.stock === 0) return;
     try {
       const res = await fetch(`${API}/products/${product.slug}`);
@@ -104,44 +105,23 @@ const ProductsPage = () => {
         setProducts((prev) => prev.map(p => p.slug === product.slug ? { ...p, stock: freshProduct.stock } : p));
       }
 
-      const raw = localStorage.getItem('cartItems');
-      const existing = raw ? JSON.parse(raw) : [];
-      const already = existing.find((i) => i.slug === product.slug);
-      
       if (freshProduct.stock !== undefined && freshProduct.stock !== null) {
         if (freshProduct.stock === 0) {
           setCartError(`Sorry, ${product.name} is now out of stock`);
           setTimeout(() => setCartError(''), 2000);
           return;
         }
-        if (already && already.qty >= freshProduct.stock) {
-          setCartError(`Limit reached for ${product.name}`);
-          setTimeout(() => setCartError(''), 2000);
-          return;
-        }
       }
 
-      if (already) {
-        setCartError('Item already in cart');
-        setTimeout(() => setCartError(''), 2000);
-        return;
-      } else {
-        existing.push({
-          slug: product.slug,
-          name: freshProduct.name || product.name,
-          spec: freshProduct.description || freshProduct.category || product.description || product.category,
-          category: freshProduct.category || product.category,
-          priceCents: freshProduct.priceCents || product.priceCents || 0,
-          qty: 1,
-          stock: freshProduct.stock,
-        });
-      }
-      localStorage.setItem('cartItems', JSON.stringify(existing));
-      window.dispatchEvent(new Event('cart-updated'));
+      await addToCart(product.id || product._id, 1);
       setCartMessage(`${product.name} added to cart`);
       setTimeout(() => setCartMessage(''), 2000);
     } catch (err) {
-      setCartError('Could not add to cart');
+      if (err.message?.includes('401')) {
+        setCartError('Please login to add to cart');
+      } else {
+        setCartError('Could not add to cart');
+      }
       setTimeout(() => setCartError(''), 2000);
     }
   };
@@ -519,7 +499,7 @@ const ProductsPage = () => {
                             disabled={stock === 0}
                             onClick={(e) => {
                               e.stopPropagation();
-                              addToCart(product);
+                              handleAddToCart(product);
                             }}
                           >
                             <ShoppingCart size={16} />

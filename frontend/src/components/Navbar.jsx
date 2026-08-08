@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingCart, User } from 'lucide-react';
 import AccountDropdown from './AccountDropdown';
-import { getStoredCartItems, reconcileStoredCartWithCatalog } from '../lib/cart';
+import { fetchCart } from '../lib/cart';
 import { fadeUpChild, staggerContainer } from '../lib/motion';
 
 const links = [
@@ -33,32 +33,21 @@ const Navbar = () => {
       setUser(null);
     }
 
-    const loadCartCount = () => {
+    const loadCartCount = async () => {
       try {
-        const list = getStoredCartItems();
-        const count = list.reduce((sum, i) => sum + (i.qty || 1), 0);
+        const list = await fetchCart();
+        const count = list.reduce((sum, i) => sum + (i.quantity || i.qty || 1), 0);
         setCartCount(count);
       } catch (e) {
         setCartCount(0);
       }
     };
 
-    const syncCartCount = async () => {
-      await reconcileStoredCartWithCatalog();
-      loadCartCount();
-    };
-
     loadCartCount();
-    syncCartCount();
 
-    const onStorage = (e) => {
-      if (e.key === 'cartItems') loadCartCount();
-    };
     const onCustom = () => loadCartCount();
-    window.addEventListener('storage', onStorage);
     window.addEventListener('cart-updated', onCustom);
     return () => {
-      window.removeEventListener('storage', onStorage);
       window.removeEventListener('cart-updated', onCustom);
     };
   }, []);
