@@ -1,9 +1,11 @@
 import type { Request, Response, NextFunction } from 'express';
 import { RegisterUser } from '../../application/use-cases/RegisterUser';
 import { LoginUser } from '../../application/use-cases/LoginUser';
+import { GetUserProfile } from '../../application/use-cases/GetUserProfile';
 import { ForgotPassword } from '../../application/use-cases/ForgotPassword';
 import { ResetPassword } from '../../application/use-cases/ResetPassword';
 import { VerifyResetOtp } from '../../application/use-cases/VerifyResetOtp';
+import { UpdateUserProfile } from '../../application/use-cases/UpdateUserProfile';
 import { ApiError } from '../../../../utils/ApiError';
 
 export class AuthController {
@@ -11,6 +13,7 @@ export class AuthController {
     private readonly registerUser: RegisterUser,
     private readonly loginUser: LoginUser,
     private readonly getUserProfile: GetUserProfile,
+    private readonly updateUserProfile: UpdateUserProfile,
     private readonly forgotPasswordUseCase?: ForgotPassword,
     private readonly verifyResetOtpUseCase?: VerifyResetOtp,
     private readonly resetPasswordUseCase?: ResetPassword
@@ -40,6 +43,33 @@ export class AuthController {
     try {
       const userId = req.user!.id;
       const user = await this.getUserProfile.execute(userId);
+      res.status(200).json(user);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public updateMe = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+      const data = {
+        name: req.body.name,
+        email: req.body.email
+      };
+      const user = await this.updateUserProfile.execute(userId, data);
+      res.status(200).json(user);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public updateAddresses = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+      const data = {
+        addresses: req.body.addresses
+      };
+      const user = await this.updateUserProfile.execute(userId, data);
       res.status(200).json(user);
     } catch (error) {
       next(error);

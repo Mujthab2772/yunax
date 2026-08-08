@@ -11,7 +11,8 @@ export class PrismaUserRepository implements IUserRepository {
         passwordHash: user.passwordHash,
         name: user.name,
         role: user.role,
-        isBanned: user.isBanned
+        isBanned: user.isBanned,
+        addresses: user.addresses
       },
       create: {
         id: user.id,
@@ -19,7 +20,8 @@ export class PrismaUserRepository implements IUserRepository {
         passwordHash: user.passwordHash,
         name: user.name,
         role: user.role,
-        isBanned: user.isBanned
+        isBanned: user.isBanned,
+        addresses: user.addresses
       }
     });
     return this.mapToEntity(record);
@@ -61,7 +63,8 @@ export class PrismaUserRepository implements IUserRepository {
       record.passwordHash,
       record.name,
       record.role as UserRole,
-      record.isBanned
+      record.isBanned,
+      Array.isArray(record.addresses) ? record.addresses : (record.addresses ? [record.addresses] : [])
     );
   }
 }

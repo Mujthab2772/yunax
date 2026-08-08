@@ -88,6 +88,8 @@ export function createAuthRoutes(authController: AuthController, authMiddleware:
   
   // Protected Routes
   router.get('/me', authMiddleware.requireAuth, authController.getMe);
+  router.put('/me', authMiddleware.requireAuth, authController.updateMe);
+  router.put('/me/addresses', authMiddleware.requireAuth, authController.updateAddresses);
   
   return router;
 }

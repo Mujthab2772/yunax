@@ -5,6 +5,7 @@ export interface UserDTO {
   email: string;
   name: string | null;
   role: UserRole;
+  addresses?: any[];
 }
 
 export class User {
@@ -14,7 +15,8 @@ export class User {
     public passwordHash: string,
     public name: string | null,
     public role: UserRole = 'customer',
-    public isBanned: boolean = false
+    public isBanned: boolean = false,
+    public addresses: any[] = []
   ) {}
 
   /**
@@ -36,6 +38,7 @@ export class User {
       email: this.email,
       name: this.name,
       role: this.role,
+      addresses: this.addresses,
     };
   }
 }

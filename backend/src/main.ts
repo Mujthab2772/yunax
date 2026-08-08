@@ -134,10 +134,12 @@ const tokenService = new JwtTokenService();
 import { ForgotPassword } from './modules/users/application/use-cases/ForgotPassword';
 import { ResetPassword } from './modules/users/application/use-cases/ResetPassword';
 import { VerifyResetOtp } from './modules/users/application/use-cases/VerifyResetOtp';
+import { UpdateUserProfile } from './modules/users/application/use-cases/UpdateUserProfile';
 
 const registerUser = new RegisterUser(userRepository, passwordHasher, tokenService);
 const loginUser = new LoginUser(userRepository, passwordHasher, tokenService);
 const getUserProfile = new GetUserProfile(userRepository);
+const updateUserProfile = new UpdateUserProfile(userRepository);
 const emailService = new NodemailerEmailService();
 
 const forgotPasswordUseCase = new ForgotPassword(userRepository, emailService);
@@ -148,6 +150,7 @@ const authController = new AuthController(
   registerUser, 
   loginUser, 
   getUserProfile, 
+  updateUserProfile,
   forgotPasswordUseCase,
   verifyResetOtpUseCase,
   resetPasswordUseCase

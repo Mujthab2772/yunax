@@ -14,6 +14,7 @@ model User {
   name         String?
   role         String   @default("customer")
   isBanned     Boolean  @default(false)
+  addresses    Json?
   
   cart          Cart?
   orders        Order[]
