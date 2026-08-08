@@ -27,6 +27,15 @@ export class NodemailerEmailService implements IEmailService {
     });
   }
 
+  public async sendEmail(to: string, subject: string, html: string): Promise<void> {
+    await this.transporter.sendMail({
+      from: '"Yunax E-Commerce" <no-reply@yunax.com>',
+      to,
+      subject,
+      html,
+    });
+  }
+
   private buildOrderHtml(order: Order): string {
     const itemsHtml = order.items.map(item => `
       <tr>
