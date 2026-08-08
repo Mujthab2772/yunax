@@ -31,7 +31,7 @@ const ForgotPasswordPage = () => {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API}/api/auth/forgot-password`, {
+      const res = await fetch(`${API}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -69,7 +69,7 @@ const ForgotPasswordPage = () => {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API}/api/auth/verify-reset-otp`, {
+      const res = await fetch(`${API}/auth/verify-reset-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
@@ -105,7 +105,7 @@ const ForgotPasswordPage = () => {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API}/api/auth/reset-password`, {
+      const res = await fetch(`${API}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: resetToken, password, confirmPassword }),
