@@ -3,7 +3,7 @@ import { CheckCircle, Clock3, ReceiptText, Truck } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
 
-const ORDER_OPTIONS = ['placed', 'packed', 'shipped', 'delivered', 'cancelled', 'refunded', 'failed'];
+const ORDER_OPTIONS = ['placed', 'packed', 'shipped', 'delivered', 'cancelled', 'refunded', 'returned', 'failed'];
 
 const formatMoney = (value = 0) => `₹${Math.round(value / 100).toLocaleString('en-IN')}`;
 const formatPaymentMethod = (value = '') => {
@@ -105,23 +105,6 @@ const AdminOrders = () => {
     }
   };
 
-  const deleteOrder = async (orderId) => {
-    try {
-      setActionLoadingId(`delete-${orderId}`);
-      const res = await fetch(`${API}/orders/${orderId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Failed to delete order');
-      removeOrderFromState(orderId);
-    } catch (err) {
-      setError(err.message || 'Failed to delete order');
-    } finally {
-      setActionLoadingId('');
-    }
-  };
-
   return (
     <AdminLayout title="Orders" description="Move orders through fulfillment, handle cancellations/refunds, and verify invoice-ready customer details.">
       {error && <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
@@ -144,7 +127,6 @@ const AdminOrders = () => {
               const orderId = order._id || order.id;
               const status = String(order.status || '').toLowerCase();
               const canCancel = ['placed', 'packed', 'pending'].includes(status);
-              const canDelete = ['cancelled', 'delivered', 'failed', 'refunded'].includes(status);
 
               return (
                 <div key={orderId} className="grid gap-4 p-5 xl:grid-cols-[1.2fr,0.8fr,1fr,1.1fr]">
@@ -182,15 +164,19 @@ const AdminOrders = () => {
                       <select
                         value={statusDrafts[orderId] || order.status || 'placed'}
                         onChange={(e) => setStatusDrafts((current) => ({ ...current, [orderId]: e.target.value }))}
-                        className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                        disabled={status === 'cancelled'}
+                        className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:opacity-50 disabled:bg-slate-50"
                       >
-                        {ORDER_OPTIONS.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
+                        {ORDER_OPTIONS.map((option) => {
+                          const isOptionDisabled = status === 'delivered' && option !== 'returned' && option !== 'delivered';
+                          return (
+                            <option key={option} value={option} disabled={isOptionDisabled}>{option}</option>
+                          );
+                        })}
                       </select>
                       <button
                         onClick={() => updateStatus(orderId)}
-                        disabled={actionLoadingId === `status-${orderId}`}
+                        disabled={actionLoadingId === `status-${orderId}` || status === 'cancelled'}
                         className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white disabled:opacity-60"
                       >
                         {actionLoadingId === `status-${orderId}` ? 'Saving...' : 'Update'}
@@ -227,15 +213,6 @@ const AdminOrders = () => {
                         <ReceiptText size={14} />
                         Invoice
                       </button>
-                      {canDelete && (
-                        <button
-                          onClick={() => deleteOrder(orderId)}
-                          disabled={actionLoadingId === `delete-${orderId}`}
-                          className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 disabled:opacity-60"
-                        >
-                          {actionLoadingId === `delete-${orderId}` ? 'Deleting...' : 'Delete'}
-                        </button>
-                      )}
                     </div>
 
                     {(order.statusTimeline || []).length > 0 && (

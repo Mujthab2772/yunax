@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Package, ShoppingCart, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Package, ShoppingCart, TrendingUp, XCircle } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
 
@@ -68,6 +68,7 @@ const AdminDashboard = () => {
   const metrics = useMemo(() => {
     const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.totalCents) || 0), 0) / 100;
     const pending = orders.filter((o) => (o.status || '').toLowerCase() === 'pending').length;
+    const cancelled = orders.filter((o) => (o.status || '').toLowerCase() === 'cancelled').length;
     const lowStock = products.filter((p) => (p.stock ?? 0) < 5).length;
     return {
       productCount: products.length,
@@ -75,6 +76,7 @@ const AdminDashboard = () => {
       totalRevenue,
       pending,
       lowStock,
+      cancelled,
     };
   }, [products, orders]);
 
@@ -82,10 +84,11 @@ const AdminDashboard = () => {
     <AdminLayout title="Dashboard" description="Snapshot of store performance, inventory, and orders.">
       {error && <div className="text-red-600 text-sm">{error}</div>}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
         <StatCard icon={Package} label="Products" value={metrics.productCount} />
         <StatCard icon={ShoppingCart} label="Orders" value={metrics.orderCount} />
         <StatCard icon={TrendingUp} label="Revenue" value={`₹${metrics.totalRevenue.toFixed(0)}`} tone="success" />
+        <StatCard icon={XCircle} label="Cancelled" value={metrics.cancelled} tone={metrics.cancelled ? 'danger' : 'default'} />
         <StatCard icon={AlertTriangle} label="Low Stock" value={metrics.lowStock} tone={metrics.lowStock ? 'danger' : 'default'} />
       </div>
 

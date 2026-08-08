@@ -2,17 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
-const categoryOptions = [
-  'Laptops',
-  'Accessories',
-  'Headphones',
-  'Graphics Cards',
-  'Networking Products',
-  'Gaming',
-  'Desktop PCs',
-  'SSD / HDD',
-  'Power Supply (SMPS)',
-];
 
 const emptyProduct = {
   name: '',
@@ -244,7 +233,7 @@ const AdminProducts = () => {
     }
   };
 
-  const categoryChoices = ['All', ...Array.from(new Set([...categoryOptions, ...products.map((product) => product.category).filter(Boolean)])).sort()];
+  const categoryChoices = ['All', ...Array.from(new Set(products.map((product) => product.category).filter(Boolean))).sort()];
 
   const filteredProducts = products.filter((product) => {
     const text = search.trim().toLowerCase();

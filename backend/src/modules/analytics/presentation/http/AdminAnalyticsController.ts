@@ -6,7 +6,8 @@ export class AdminAnalyticsController {
 
   public getStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const stats = await this.getDashboardStatsUseCase.execute();
+      const period = (req.query.period as string) || 'all';
+      const stats = await this.getDashboardStatsUseCase.execute(period);
       res.status(200).json({ success: true, data: stats });
     } catch (error) {
       next(error);

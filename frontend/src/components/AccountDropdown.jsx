@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Package, MapPin, ShieldCheck, LogOut, ChevronDown, Heart } from 'lucide-react';
+import { User, Package, MapPin, ShieldCheck, LogOut, ChevronDown, Heart, LayoutDashboard } from 'lucide-react';
 
 const menuItems = [
   { label: 'Account overview', href: '/account', icon: User },
@@ -87,6 +87,15 @@ const AccountDropdown = ({ user }) => {
                     <span className="font-medium">{item.label}</span>
                   </a>
                 ))}
+                {user?.role === 'admin' && (
+                  <a
+                    href="/admin"
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-amber-700 transition-all hover:bg-amber-50 hover:text-amber-900"
+                  >
+                    <LayoutDashboard size={17} className="text-amber-500" />
+                    <span className="font-medium">Admin Dashboard</span>
+                  </a>
+                )}
               </div>
 
               <div className="mt-3 border-t border-slate-100 pt-3">

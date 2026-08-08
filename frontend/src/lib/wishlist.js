@@ -12,13 +12,14 @@ export const getAuthToken = () => {
 const parseResponse = async (res) => {
   const payload = await res.json().catch(() => null);
   if (!res.ok) throw new Error(payload?.error || 'Wishlist request failed');
+  if (payload && Array.isArray(payload.data)) return payload.data;
   return Array.isArray(payload) ? payload : [];
 };
 
 export const loadWishlist = async () => {
   const token = getAuthToken();
   if (!token) return [];
-  const res = await fetch(`${API}/auth/me/wishlist`, {
+  const res = await fetch(`${API}/wishlist`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return parseResponse(res);
@@ -27,28 +28,23 @@ export const loadWishlist = async () => {
 export const addToWishlist = async (product) => {
   const token = getAuthToken();
   if (!token) throw new Error('Please log in to save items to your wishlist.');
-  const res = await fetch(`${API}/auth/me/wishlist`, {
+  const id = product._id || product.id || product.productId;
+  await fetch(`${API}/wishlist/${id}/toggle`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      productId: product._id || product.id || product.productId || '',
-      slug: product.slug,
-    }),
-  });
-  return parseResponse(res);
-};
-
-export const removeFromWishlist = async (slug) => {
-  const token = getAuthToken();
-  if (!token) throw new Error('Please log in to update your wishlist.');
-  const res = await fetch(`${API}/auth/me/wishlist/${encodeURIComponent(slug)}`, {
-    method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
-  return parseResponse(res);
+  return loadWishlist();
+};
+
+export const removeFromWishlist = async (product) => {
+  const token = getAuthToken();
+  if (!token) throw new Error('Please log in to update your wishlist.');
+  const id = product._id || product.id || product.productId;
+  await fetch(`${API}/wishlist/${id}/toggle`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return loadWishlist();
 };
 
 export const moveWishlistItemToCart = async (item) => {
@@ -56,5 +52,5 @@ export const moveWishlistItemToCart = async (item) => {
     ...item,
     images: item.image ? [item.image] : item.images || [],
   });
-  return removeFromWishlist(item.slug);
+  return removeFromWishlist(item);
 };

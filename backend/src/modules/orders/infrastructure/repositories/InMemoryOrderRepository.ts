@@ -14,12 +14,31 @@ export class InMemoryOrderRepository implements IOrderRepository {
     return order;
   }
 
+  public async saveWithStockReservation(order: Order, items: {productId: string, quantity: number, name: string}[]): Promise<Order> {
+    return this.save(order); // Mock
+  }
+
+  public async getRecentDeliveredOrders(startDate?: Date, limit?: number): Promise<any[]> {
+    return []; // Mock
+  }
+
   public async getById(id: string): Promise<Order | null> {
     return this.orders.find(o => o.id === id) || null;
   }
 
   public async getByUserId(userId: string): Promise<Order[]> {
-    return this.orders.filter(order => order.userId === userId);
+    return this.orders.filter(o => o.userId === userId).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  public async listAll(): Promise<any[]> {
+    return Array.from(this.orders);
+  }
+
+  public async delete(id: string): Promise<void> {
+    const index = this.orders.findIndex(o => o.id === id);
+    if (index !== -1) {
+      this.orders.splice(index, 1);
+    }
   }
 
   public async hasVerifiedPurchase(userId: string, productId: string): Promise<boolean> {
@@ -33,7 +52,7 @@ export class InMemoryOrderRepository implements IOrderRepository {
 
   public async getAnalytics(): Promise<IOrderAnalytics> {
     const paidOrders = this.orders.filter(o => o.status === 'PAID');
-    const totalRevenue = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const totalRevenue = paidOrders.reduce((sum, o) => sum + o.totalCents, 0);
 
     const productSales = new Map<string, { name: string; quantity: number }>();
     paidOrders.forEach(order => {
@@ -60,11 +79,11 @@ export class InMemoryOrderRepository implements IOrderRepository {
     };
   }
 
-  public async getPaidOrderItems(): Promise<{ productId: string, quantity: number, price: number }[]> {
-    const items: { productId: string, quantity: number, price: number }[] = [];
+  public async getPaidOrderItems(): Promise<{ productId: string, quantity: number, priceCents: number }[]> {
+    const items: { productId: string, quantity: number, priceCents: number }[] = [];
     this.orders.filter(o => o.status === 'PAID').forEach(order => {
       order.items.forEach(item => {
-        items.push({ productId: item.productId, quantity: item.quantity, price: item.price });
+        items.push({ productId: item.productId, quantity: item.quantity, priceCents: item.priceCents });
       });
     });
     return items;

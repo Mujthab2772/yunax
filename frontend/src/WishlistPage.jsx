@@ -96,8 +96,8 @@ const WishlistPage = () => {
             {items.map((item) => (
               <div key={item.slug} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
                 <a href={`/products/${item.slug}`} className="block overflow-hidden rounded-[20px] bg-slate-50">
-                  {item.image ? (
-                    <img src={item.image} alt={item.name} className="h-52 w-full object-contain p-5" />
+                  {item.images ? (
+                    <img src={item.images[0]} alt={item.name} className="h-52 w-full object-contain p-5" />
                   ) : (
                     <div className="flex h-52 items-center justify-center text-2xl font-bold text-slate-300">
                       {item.name?.slice(0, 2)?.toUpperCase() || 'YN'}

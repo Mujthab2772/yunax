@@ -1,8 +1,11 @@
-import { LogOut, Menu } from 'lucide-react';
+import { LogOut, Menu, ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { API } from '../lib/api';
 
 const navItems = [
-  { label: 'Dashboard', href: '/admin', match: (path) => path === '/admin' || path.startsWith('/admin/dashboard') },
+  { label: 'Dashboard', href: '/admin', match: (path) => path === '/admin' || path === '/admin/dashboard' },
+  { label: 'Analytics', href: '/admin/analytics', match: (path) => path.startsWith('/admin/analytics') },
+  { label: 'Sales Report', href: '/admin/sales-report', match: (path) => path.startsWith('/admin/sales-report') },
   { label: 'Products', href: '/admin/products', match: (path) => path.startsWith('/admin/products') },
   { label: 'Categories', href: '/admin/categories', match: (path) => path.startsWith('/admin/categories') },
   { label: 'Reviews', href: '/admin/reviews', match: (path) => path.startsWith('/admin/reviews') },
@@ -15,9 +18,24 @@ const AdminLayout = ({ title, description, children }) => {
   const [path, setPath] = useState('/');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(true);
+  const [unreadSupport, setUnreadSupport] = useState(0);
 
   useEffect(() => {
     setPath(window.location.pathname);
+    
+    const token = localStorage.getItem('admin_token') || localStorage.getItem('token');
+    if (token) {
+      fetch(`${API}/support/messages/unread-count`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data.count === 'number') {
+          setUnreadSupport(data.count);
+        }
+      })
+      .catch(() => {});
+    }
   }, []);
 
   return (
@@ -41,24 +59,39 @@ const AdminLayout = ({ title, description, children }) => {
                 }`}
                 onClick={() => setMobileOpen(false)}
               >
-                <span>{item.label}</span>
+                <div className="flex items-center gap-2">
+                  <span>{item.label}</span>
+                  {item.label === 'Support' && unreadSupport > 0 && (
+                    <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {unreadSupport}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] uppercase tracking-[0.25em] text-slate-400">Go</span>
               </a>
             );
           })}
         </nav>
-        <div className="absolute bottom-0 inset-x-0 p-4 border-t border-slate-200 bg-white/90">
+        <div className="absolute bottom-0 inset-x-0 p-4 border-t border-slate-200 bg-white/90 space-y-2">
+          <a
+            href="/"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 hover:border-slate-300 bg-slate-50"
+          >
+            <ArrowLeft size={16} /> Back to Store
+          </a>
           <button
             onClick={() => {
               try {
                 localStorage.removeItem('admin_token');
                 localStorage.removeItem('admin_user');
-                window.location.href = '/admin/login';
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/';
               } catch (e) {
                 console.error(e);
               }
             }}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 hover:border-slate-300"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm text-rose-600 hover:bg-rose-50"
           >
             <LogOut size={16} /> Logout
           </button>

@@ -10,15 +10,18 @@ export class UpdateProduct {
     if (!product) throw new ApiError(404, 'Product not found');
 
     if (updates.name !== undefined) product.name = updates.name;
-    if (updates.price !== undefined) product.price = updates.price;
+    if (updates.slug !== undefined) {
+      product.slug = updates.slug || updates.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    }
+    if (updates.priceCents !== undefined) product.priceCents = updates.priceCents;
     if (updates.description !== undefined) product.description = updates.description;
     
-    if (updates.stock_quantity !== undefined) {
-      product.stock_quantity = Math.max(0, updates.stock_quantity);
+    if (updates.stock !== undefined) {
+      product.stock = Math.max(0, updates.stock);
     }
     
-    if (updates.category_id !== undefined) product.category_id = updates.category_id;
-    if (updates.image_urls !== undefined) product.image_urls = updates.image_urls;
+    if (updates.category !== undefined) product.category = updates.category;
+    if (updates.images !== undefined) product.images = updates.images;
 
     return this.productRepository.update(product);
   }

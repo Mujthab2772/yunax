@@ -3,8 +3,7 @@ export type UserRole = 'customer' | 'admin';
 export interface UserDTO {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  name: string | null;
   role: UserRole;
 }
 
@@ -13,9 +12,9 @@ export class User {
     public readonly id: string,
     public email: string,
     public passwordHash: string,
-    public firstName: string,
-    public lastName: string,
-    public role: UserRole = 'customer'
+    public name: string | null,
+    public role: UserRole = 'customer',
+    public isBanned: boolean = false
   ) {}
 
   /**
@@ -35,8 +34,7 @@ export class User {
     return {
       id: this.id,
       email: this.email,
-      firstName: this.firstName,
-      lastName: this.lastName,
+      name: this.name,
       role: this.role,
     };
   }

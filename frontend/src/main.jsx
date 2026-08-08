@@ -18,8 +18,9 @@ import FAQPage from './FAQPage';
 import LegalPage from './LegalPage';
 import ResetPasswordPage from './ResetPasswordPage';
 import AdminPage from './AdminPage';
-import AdminManagePage from './AdminManagePage';
 import AdminDashboard from './admin/AdminDashboard';
+import AdminAnalytics from './admin/AdminAnalytics';
+import AdminSalesReport from './admin/AdminSalesReport';
 import AdminProducts from './admin/AdminProducts';
 import AdminOrders from './admin/AdminOrders';
 import AdminLogin from './admin/AdminLogin';
@@ -62,6 +63,8 @@ const isFAQPage = path === '/faq';
 const isAdminLoginPage = path === '/admin/login';
 const isAdminSignupPage = path === '/admin/signup';
 const isAdminDashboardPage = path === '/admin' || path === '/admin/dashboard';
+const isAdminAnalyticsPage = path === '/admin/analytics';
+const isAdminSalesReportPage = path === '/admin/sales-report';
 const isAdminProductsPage = path === '/admin/products';
 const isAdminAddProductPage = path === '/admin/products/add';
 const isAdminEditProductPage = path.startsWith('/admin/products/edit/');
@@ -70,7 +73,6 @@ const isAdminCategoriesPage = path === '/admin/categories';
 const isAdminReviewsPage = path === '/admin/reviews';
 const isAdminSupportPage = path === '/admin/support';
 const isAdminUsersPage = path === '/admin/users';
-const isAdminManagePage = path === '/admin/manage';
 const isAdminPage = path.startsWith('/admin');
 
 // User Session
@@ -118,7 +120,8 @@ else if (isAdminReviewsPage) RootComponent = <AdminReviews />;
 else if (isAdminSupportPage) RootComponent = <AdminSupport />;
 else if (isAdminUsersPage) RootComponent = <AdminUsers />;
 else if (isAdminDashboardPage) RootComponent = <AdminDashboard />;
-else if (isAdminManagePage) RootComponent = <AdminManagePage />;
+else if (isAdminAnalyticsPage) RootComponent = <AdminAnalytics />;
+else if (isAdminSalesReportPage) RootComponent = <AdminSalesReport />;
 else if (isAdminPage) RootComponent = <AdminPage />;
 else RootComponent = <App />;
 

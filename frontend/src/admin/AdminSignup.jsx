@@ -8,11 +8,28 @@ const AdminSignup = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+
+  const validate = () => {
+    const errors = {};
+    if (!name.trim()) errors.name = 'Name is required';
+    if (!email.trim()) errors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Invalid email format';
+    
+    if (!password) errors.password = 'Password is required';
+    else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
+    
+    if (!validate()) return;
+    
     try {
       setLoading(true);
       const res = await fetch(`${API}/auth/admin/signup`, {
@@ -57,12 +74,12 @@ const AdminSignup = () => {
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold" size={18} />
               <input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-slate-900 outline-none transition focus:ring-4 focus:ring-slate-100 placeholder:text-slate-300"
+                onChange={(e) => { setName(e.target.value); setFieldErrors(f => ({ ...f, name: '' })); }}
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border ${fieldErrors.name ? 'border-rose-300' : 'border-slate-200'} focus:border-slate-900 outline-none transition focus:ring-4 focus:ring-slate-100 placeholder:text-slate-300`}
                 placeholder="Admin name"
-                required
               />
             </div>
+            {fieldErrors.name && <p className="text-xs text-rose-500 font-medium ml-1 mt-1">{fieldErrors.name}</p>}
           </div>
 
           <div className="space-y-2">
@@ -72,12 +89,12 @@ const AdminSignup = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-slate-900 outline-none transition focus:ring-4 focus:ring-slate-100 placeholder:text-slate-300"
+                onChange={(e) => { setEmail(e.target.value); setFieldErrors(f => ({ ...f, email: '' })); }}
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border ${fieldErrors.email ? 'border-rose-300' : 'border-slate-200'} focus:border-slate-900 outline-none transition focus:ring-4 focus:ring-slate-100 placeholder:text-slate-300`}
                 placeholder="admin@yunax.com"
-                required
               />
             </div>
+            {fieldErrors.email && <p className="text-xs text-rose-500 font-medium ml-1 mt-1">{fieldErrors.email}</p>}
           </div>
 
           <div className="space-y-2">
@@ -87,10 +104,9 @@ const AdminSignup = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-11 pr-12 py-3 rounded-xl border border-slate-200 focus:border-slate-900 outline-none transition focus:ring-4 focus:ring-slate-100 placeholder:text-slate-300"
+                onChange={(e) => { setPassword(e.target.value); setFieldErrors(f => ({ ...f, password: '' })); }}
+                className={`w-full pl-11 pr-12 py-3 rounded-xl border ${fieldErrors.password ? 'border-rose-300' : 'border-slate-200'} focus:border-slate-900 outline-none transition focus:ring-4 focus:ring-slate-100 placeholder:text-slate-300`}
                 placeholder="••••••••"
-                required
               />
               <button
                 type="button"
@@ -100,6 +116,7 @@ const AdminSignup = () => {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            {fieldErrors.password && <p className="text-xs text-rose-500 font-medium ml-1 mt-1">{fieldErrors.password}</p>}
           </div>
 
           {error && <div className="text-sm text-red-600 bg-red-50 p-4 rounded-xl border border-red-100 animate-in slide-in-from-top-2">{error}</div>}

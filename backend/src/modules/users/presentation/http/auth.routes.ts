@@ -1,6 +1,32 @@
 import { Router } from 'express';
 import { AuthController } from './AuthController';
 import { AuthMiddleware } from './middleware/AuthMiddleware';
+import { validateRequest } from '../../../../infrastructure/middleware/validateRequest';
+import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs for auth routes
+  message: 'Too many authentication attempts, please try again after 15 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email address'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    name: z.string().min(1, 'Name is required').optional()
+  })
+});
+
+const loginSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email address'),
+    password: z.string().min(1, 'Password is required')
+  })
+});
 
 export function createAuthRoutes(authController: AuthController, authMiddleware: AuthMiddleware): Router {
   const router = Router();
@@ -22,15 +48,13 @@ export function createAuthRoutes(authController: AuthController, authMiddleware:
    *                 type: string
    *               password:
    *                 type: string
-   *               firstName:
-   *                 type: string
-   *               lastName:
+   *               name:
    *                 type: string
    *     responses:
    *       201:
    *         description: User registered successfully
    */
-  router.post('/register', authController.register);
+  router.post('/register', authLimiter, validateRequest(registerSchema), authController.register);
 
   /**
    * @openapi
@@ -53,7 +77,10 @@ export function createAuthRoutes(authController: AuthController, authMiddleware:
    *       200:
    *         description: Login successful, returns JWT
    */
-  router.post('/login', authController.login);
+  router.post('/login', authLimiter, validateRequest(loginSchema), authController.login);
+  
+  router.post('/admin/login', authLimiter, validateRequest(loginSchema), authController.adminLogin);
+  router.post('/admin/signup', authLimiter, validateRequest(registerSchema), authController.adminSignup);
   
   // Protected Routes
   router.get('/me', authMiddleware.requireAuth, authController.getMe);

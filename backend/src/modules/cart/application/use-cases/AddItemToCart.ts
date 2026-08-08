@@ -20,7 +20,7 @@ export class AddItemToCart {
       cart = new Cart(userId);
     }
 
-    cart.addItem(product.id, product.price, quantity);
+    cart.addItem(product.id, product.priceCents, quantity);
 
     return this.cartRepository.save(cart);
   }

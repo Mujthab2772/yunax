@@ -5,6 +5,7 @@ export class Review {
     public readonly productId: string,
     public readonly rating: number,
     public readonly comment: string,
+    public status: string = 'pending',
     public readonly createdAt: Date = new Date()
   ) {
     if (rating < 1 || rating > 5) throw new Error('Rating must be between 1 and 5');

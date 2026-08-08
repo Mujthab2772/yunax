@@ -3,13 +3,14 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
 
-const emptyForm = { name: '', slug: '', image: '', description: '' };
+const emptyForm = { name: '', image: '', description: '' };
 
 const AdminCategories = () => {
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState('');
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const token = (() => {
     try { return localStorage.getItem('admin_token'); } catch (e) { return null; }
@@ -49,6 +50,31 @@ const AdminCategories = () => {
     }
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const res = await fetch(`${API}/products/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || 'Upload failed');
+      
+      setForm(f => ({ ...f, image: data.url }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const remove = async (category) => {
     if (!token) return setError('Admin login required.');
     if (!window.confirm(`Delete ${category.name}?`)) return;
@@ -69,7 +95,6 @@ const AdminCategories = () => {
     setEditingId(category._id || category.id);
     setForm({
       name: category.name || '',
-      slug: category.slug || '',
       image: category.image || '',
       description: category.description || '',
     });
@@ -81,9 +106,30 @@ const AdminCategories = () => {
 
       <form onSubmit={submit} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
-          <input className="rounded-xl border border-slate-200 px-4 py-3" value={form.name} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} placeholder="Category name" />
-          <input className="rounded-xl border border-slate-200 px-4 py-3" value={form.slug} onChange={(e) => setForm((v) => ({ ...v, slug: e.target.value }))} placeholder="Slug, optional" />
-          <input className="rounded-xl border border-slate-200 px-4 py-3 md:col-span-2" value={form.image} onChange={(e) => setForm((v) => ({ ...v, image: e.target.value }))} placeholder="Category image URL" />
+          <input className="rounded-xl border border-slate-200 px-4 py-3 md:col-span-2" value={form.name} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} placeholder="Category name" required />
+          <div className="md:col-span-2">
+            {form.image ? (
+              <div className="relative inline-block w-40 aspect-square rounded-2xl border border-slate-200 overflow-hidden group bg-slate-50">
+                <img src={form.image} alt="Category preview" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, image: '' }))}
+                  className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  title="Remove image"
+                >
+                  <Plus size={16} className="rotate-45" />
+                </button>
+              </div>
+            ) : (
+              <label className={`cursor-pointer w-full py-10 rounded-2xl border-2 border-dashed ${uploading ? 'border-slate-300 bg-slate-50' : 'border-slate-300 hover:border-slate-900 bg-slate-50'} flex flex-col items-center justify-center gap-2 transition-all`}>
+                <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
+                  {uploading ? <div className="h-4 w-4 border-2 border-slate-400 border-t-slate-600 rounded-full animate-spin" /> : <Plus size={20} />}
+                </div>
+                <span className="text-sm font-semibold text-slate-600">{uploading ? 'Uploading...' : 'Upload Image'}</span>
+                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploading} />
+              </label>
+            )}
+          </div>
           <textarea className="min-h-24 rounded-xl border border-slate-200 px-4 py-3 md:col-span-2" value={form.description} onChange={(e) => setForm((v) => ({ ...v, description: e.target.value }))} placeholder="Short description" />
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
@@ -100,7 +146,7 @@ const AdminCategories = () => {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {categories.map((category) => {
-          const stored = Boolean(category._id);
+          const stored = Boolean(category._id || category.id);
           return (
             <div key={category._id || category.id || category.slug} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex h-36 items-center justify-center rounded-2xl bg-slate-50">

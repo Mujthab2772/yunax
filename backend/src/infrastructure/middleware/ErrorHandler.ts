@@ -13,12 +13,18 @@ export function ErrorHandler(err: any, req: Request, res: Response, next: NextFu
     // Fallback for the legacy ApiError
     statusCode = err.statusCode;
     message = err.message;
-  } else if (err.name === 'ZodError') {
+  } else if (err && err.name === 'ZodError') {
     statusCode = 400;
-    message = err.errors.map((e: any) => e.message).join(', ');
+    try {
+      const parsed = JSON.parse(err.message);
+      message = Array.isArray(parsed) ? parsed.map((e: any) => e.message).join(', ') : err.message;
+    } catch {
+      message = err.message;
+    }
   }
 
   res.status(statusCode).json({
+    error: message,
     status: 'error',
     code: statusCode,
     message,

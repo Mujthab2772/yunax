@@ -5,13 +5,47 @@ import { useState } from 'react';
 import { Eye, EyeOff, User, Mail, Lock, ShieldCheck } from 'lucide-react';
 import { API } from './lib/api';
 
+const getStrength = (pass) => {
+  if (!pass) return { score: 0, label: '', color: 'bg-slate-200', text: 'text-slate-400' };
+  let s = 0;
+  if (pass.length >= 8) s += 1;
+  if (pass.length >= 12) s += 1;
+  if (/[A-Z]/.test(pass)) s += 1;
+  if (/[0-9]/.test(pass)) s += 1;
+  if (/[^A-Za-z0-9]/.test(pass)) s += 1;
+  
+  switch(s) {
+    case 0:
+    case 1: return { score: 1, label: 'Weak', color: 'bg-rose-500', text: 'text-rose-500' };
+    case 2: return { score: 2, label: 'Fair', color: 'bg-orange-500', text: 'text-orange-500' };
+    case 3: return { score: 3, label: 'Good', color: 'bg-amber-500', text: 'text-amber-500' };
+    case 4: return { score: 4, label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-500' };
+    case 5: return { score: 5, label: 'Very Strong', color: 'bg-emerald-600', text: 'text-emerald-600' };
+    default: return { score: 0, label: '', color: 'bg-slate-200', text: 'text-slate-400' };
+  }
+};
+
 const SignupPage = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+
+  const validate = () => {
+    const errors = {};
+    if (!name.trim()) errors.name = 'Name is required';
+    if (!email.trim()) errors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Invalid email format';
+    
+    if (!password) errors.password = 'Password is required';
+    else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
   const [verificationPending, setVerificationPending] = useState(false);
   const [otp, setOtp] = useState('');
   const [devOtp, setDevOtp] = useState('');
@@ -20,9 +54,10 @@ const SignupPage = () => {
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
+    if (!validate()) return;
     try {
       setLoading(true);
-      const res = await fetch(`${API}/auth/signup`, {
+      const res = await fetch(`${API}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name }),
@@ -126,12 +161,12 @@ const SignupPage = () => {
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-slate-900 outline-none transition"
+                    onChange={(e) => { setName(e.target.value); setFieldErrors(f => ({ ...f, name: '' })); }}
+                    className={`w-full pl-11 pr-4 py-3 rounded-xl border ${fieldErrors.name ? 'border-rose-300' : 'border-slate-200'} focus:border-slate-900 outline-none transition`}
                     placeholder="John Doe"
-                    required
                   />
                 </div>
+                {fieldErrors.name && <p className="text-xs text-rose-500 font-medium ml-1 mt-1">{fieldErrors.name}</p>}
               </div>
 
               <div className="space-y-2">
@@ -141,12 +176,12 @@ const SignupPage = () => {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-slate-900 outline-none transition"
+                    onChange={(e) => { setEmail(e.target.value); setFieldErrors(f => ({ ...f, email: '' })); }}
+                    className={`w-full pl-11 pr-4 py-3 rounded-xl border ${fieldErrors.email ? 'border-rose-300' : 'border-slate-200'} focus:border-slate-900 outline-none transition`}
                     placeholder="you@example.com"
-                    required
                   />
                 </div>
+                {fieldErrors.email && <p className="text-xs text-rose-500 font-medium ml-1 mt-1">{fieldErrors.email}</p>}
               </div>
 
               <div className="space-y-2">
@@ -156,10 +191,9 @@ const SignupPage = () => {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-11 pr-12 py-3 rounded-xl border border-slate-200 focus:border-slate-900 outline-none transition"
+                    onChange={(e) => { setPassword(e.target.value); setFieldErrors(f => ({ ...f, password: '' })); }}
+                    className={`w-full pl-11 pr-12 py-3 rounded-xl border ${fieldErrors.password ? 'border-rose-300' : 'border-slate-200'} focus:border-slate-900 outline-none transition`}
                     placeholder="••••••••"
-                    required
                   />
                   <button
                     type="button"
@@ -169,6 +203,25 @@ const SignupPage = () => {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {password && (
+                  <div className="mt-2 space-y-1.5 ml-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500">Password strength</span>
+                      <span className={`font-medium ${getStrength(password).text}`}>{getStrength(password).label}</span>
+                    </div>
+                    <div className="flex gap-1 h-1.5 w-full rounded-full overflow-hidden bg-slate-100">
+                      {[1, 2, 3, 4, 5].map((level) => (
+                        <div
+                          key={level}
+                          className={`flex-1 transition-colors duration-300 ${
+                            level <= getStrength(password).score ? getStrength(password).color : 'bg-transparent'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {fieldErrors.password && <p className="text-xs text-rose-500 font-medium ml-1 mt-1">{fieldErrors.password}</p>}
               </div>
                 </>
               )}

@@ -1,25 +1,39 @@
 import { Router } from 'express';
 import { ProductController } from './ProductController';
+import { UploadController } from './UploadController';
 import { AuthMiddleware } from '../../../users/presentation/http/middleware/AuthMiddleware';
 import { AdminMiddleware } from '../../../users/presentation/http/middleware/AdminMiddleware';
 import { validateRequest } from '../../../../infrastructure/middleware/validateRequest';
 import { z } from 'zod';
 import multer from 'multer';
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images are allowed.') as any, false);
+    }
+  }
+});
 
 const createProductSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
+    slug: z.string().optional(),
     description: z.string().min(1, 'Description is required'),
-    price: z.preprocess((val) => Number(val), z.number().positive('Price must be greater than zero')),
-    stock_quantity: z.preprocess((val) => Number(val), z.number().int().nonnegative('Stock must be zero or positive')),
-    category_id: z.string().min(1, 'Category is required')
+    priceCents: z.number().int().positive('Price must be greater than zero'),
+    stock: z.number().int().nonnegative('Stock must be zero or positive'),
+    category: z.string().min(1, 'Category is required'),
+    images: z.array(z.string()).optional()
   })
 });
 
 export function createProductRoutes(
   productController: ProductController,
+  uploadController: UploadController,
   authMiddleware: AuthMiddleware,
   adminMiddleware: AdminMiddleware
 ): Router {
@@ -57,7 +71,9 @@ export function createProductRoutes(
   
   const adminOnly = [authMiddleware.requireAuth, adminMiddleware.requireAdmin];
   
-  router.post('/', adminOnly, upload.single('image'), validateRequest(createProductSchema), productController.createProduct);
+  router.post('/', adminOnly, validateRequest(createProductSchema), productController.createProduct);
+  router.post('/upload', adminOnly, upload.single('image'), uploadController.uploadImage);
+  router.put('/:id', adminOnly, validateRequest(createProductSchema), productController.updateProduct);
   router.patch('/:id', adminOnly, productController.updateProduct);
   router.delete('/:id', adminOnly, productController.deleteProduct);
   

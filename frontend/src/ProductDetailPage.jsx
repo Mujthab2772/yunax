@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import { motion } from 'framer-motion';
-import { Heart } from 'lucide-react';
+import { Heart, Star } from 'lucide-react';
 import { API } from './lib/api';
 import { defaultProducts, findDefaultProductBySlug } from './lib/defaultProducts';
 import { addToWishlist, getAuthToken, loadWishlist, removeFromWishlist } from './lib/wishlist';
@@ -36,12 +36,18 @@ const ProductDetailPage = ({ slug }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
+  const [toastError, setToastError] = useState('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isRotateMode, setIsRotateMode] = useState(false);
   const [zoomOrigin, setZoomOrigin] = useState('50% 50%');
   const [isHoveringImage, setIsHoveringImage] = useState(false);
   const [isHoveringControls, setIsHoveringControls] = useState(false);
   const [wishlistSlugs, setWishlistSlugs] = useState([]);
+  
+  const [reviewData, setReviewData] = useState({ reviews: [], averageRating: 0, totalReviews: 0 });
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   const enrichProduct = (item) => ({
     ...item,
@@ -59,22 +65,48 @@ const ProductDetailPage = ({ slug }) => {
     return matching.slice(0, 4);
   };
 
-  const addProductToCart = (item) => {
+  const addProductToCart = async (item) => {
+    if (item.stock === 0) return false;
     try {
+      const res = await fetch(`${API}/products/${item.slug}`);
+      if (!res.ok) throw new Error('Failed to verify stock');
+      const freshProduct = await res.json();
+      
+      if (product && freshProduct.stock !== product.stock) {
+        setProduct((prev) => ({ ...prev, stock: freshProduct.stock }));
+      }
+
       const raw = localStorage.getItem('cartItems');
       const existing = raw ? JSON.parse(raw) : [];
       const already = existing.find((entry) => entry.slug === item.slug);
+      
+      if (freshProduct.stock !== undefined && freshProduct.stock !== null) {
+        if (freshProduct.stock === 0) {
+          setToastError(`Sorry, ${item.name} is now out of stock`);
+          setTimeout(() => setToastError(''), 2000);
+          return false;
+        }
+        if (already && already.qty >= freshProduct.stock) {
+          setToastError(`You cannot add more than ${freshProduct.stock} items`);
+          setTimeout(() => setToastError(''), 1800);
+          return false;
+        }
+      }
+
       if (already) {
-        already.qty = (already.qty || 1) + 1;
+        setToastError('Item already in cart');
+        setTimeout(() => setToastError(''), 1800);
+        return false;
       } else {
         existing.push({
           slug: item.slug,
-          productId: item._id || item.id,
-          name: item.name,
-          spec: item.description || item.category,
-          category: item.category,
-          priceCents: item.priceCents || 0,
+          productId: freshProduct._id || freshProduct.id || item._id || item.id,
+          name: freshProduct.name || item.name,
+          spec: freshProduct.description || freshProduct.category || item.description || item.category,
+          category: freshProduct.category || item.category,
+          priceCents: freshProduct.priceCents || item.priceCents || 0,
           qty: 1,
+          stock: freshProduct.stock,
         });
       }
       localStorage.setItem('cartItems', JSON.stringify(existing));
@@ -83,8 +115,8 @@ const ProductDetailPage = ({ slug }) => {
       setTimeout(() => setToast(''), 1500);
       return true;
     } catch (err) {
-      setToast('Could not add to cart. Please try again.');
-      setTimeout(() => setToast(''), 1800);
+      setToastError('Could not add to cart. Please try again.');
+      setTimeout(() => setToastError(''), 1800);
       return false;
     }
   };
@@ -121,6 +153,16 @@ const ProductDetailPage = ({ slug }) => {
           setProduct(resolvedProduct);
           setRelatedProducts(fillRelatedProducts(resolvedProduct, catalog));
           setError('');
+
+          const pId = resolvedProduct._id || resolvedProduct.id;
+          if (pId) {
+            fetch(`${API}/products/${pId}/reviews`)
+              .then((r) => r.json())
+              .then((d) => {
+                if (d.success) setReviewData(d.data);
+              })
+              .catch(() => {});
+          }
         }
       } catch (err) {
         const fallback = findDefaultProductBySlug(slug);
@@ -154,13 +196,51 @@ const ProductDetailPage = ({ slug }) => {
     }
     try {
       const isSaved = wishlistSlugs.includes(product.slug);
-      const nextItems = isSaved ? await removeFromWishlist(product.slug) : await addToWishlist(product);
+      const nextItems = isSaved ? await removeFromWishlist(product) : await addToWishlist(product);
       setWishlistSlugs(nextItems.map((item) => item.slug));
       setToast(isSaved ? 'Removed from wishlist' : 'Saved to wishlist');
       setTimeout(() => setToast(''), 1600);
     } catch (err) {
       setToast(err.message || 'Could not update wishlist.');
       setTimeout(() => setToast(''), 2000);
+    }
+  };
+
+  const submitReview = async (e) => {
+    e.preventDefault();
+    setReviewError('');
+    const token = getAuthToken();
+    if (!token) {
+      setReviewError('You must be logged in to submit a review.');
+      return;
+    }
+    
+    setIsSubmittingReview(true);
+    const pId = product._id || product.id;
+    try {
+      const res = await fetch(`${API}/products/${pId}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(reviewForm)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to submit review');
+      
+      setToast('Review submitted successfully!');
+      setTimeout(() => setToast(''), 2000);
+      setReviewForm({ rating: 5, comment: '' });
+      
+      const rRes = await fetch(`${API}/products/${pId}/reviews`);
+      const rData = await rRes.json();
+      if (rData.success) setReviewData(rData.data);
+      
+    } catch (err) {
+      setReviewError(err.message);
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -371,17 +451,27 @@ const ProductDetailPage = ({ slug }) => {
             ) : null}
             <div className="flex flex-wrap gap-3 pt-2">
               <button
-                className="px-5 py-3 rounded-full bg-slate-900 text-white hover:bg-slate-800"
+                className={`px-5 py-3 rounded-full ${
+                  product.stock === 0 
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed' 
+                    : 'bg-slate-900 text-white hover:bg-slate-800'
+                }`}
                 onClick={addToCart}
+                disabled={product.stock === 0}
               >
-                Add to Cart
+                {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
               </button>
               <button
-                className="px-5 py-3 rounded-full border border-slate-200 text-slate-800 hover:border-slate-300"
+                className={`px-5 py-3 rounded-full border ${
+                  product.stock === 0 
+                    ? 'border-slate-200 text-slate-400 cursor-not-allowed' 
+                    : 'border-slate-200 text-slate-800 hover:border-slate-300'
+                }`}
                 onClick={() => {
                   addToCart();
                   window.location.href = '/cart';
                 }}
+                disabled={product.stock === 0}
               >
                 Buy Now
               </button>
@@ -397,7 +487,8 @@ const ProductDetailPage = ({ slug }) => {
                 {wishlistSlugs.includes(product.slug) ? 'Saved' : 'Add to Wishlist'}
               </button>
             </div>
-            {toast && <div className="text-sm text-emerald-600">{toast}</div>}
+            {toast && <div className="text-sm text-emerald-600 font-medium">{toast}</div>}
+            {toastError && <div className="text-sm text-rose-600 font-medium">{toastError}</div>}
           </motion.div>
         </div>
 
@@ -419,6 +510,97 @@ const ProductDetailPage = ({ slug }) => {
             </div>
           </section>
         )}
+
+        {/* Reviews Section */}
+        <section className="space-y-6">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Customer Feedback</p>
+              <h2 className="text-2xl font-semibold text-slate-900">Reviews & Ratings</h2>
+            </div>
+            {reviewData.totalReviews > 0 && (
+              <div className="flex items-center gap-2">
+                <Star className="text-amber-400" size={20} fill="currentColor" />
+                <span className="font-semibold text-slate-900 text-lg">{reviewData.averageRating}</span>
+                <span className="text-slate-500 text-sm">({reviewData.totalReviews})</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4">
+              {reviewData.reviews?.length > 0 ? (
+                <div className="space-y-4 max-h-[500px] overflow-auto pr-2">
+                  {reviewData.reviews.map((r, idx) => (
+                    <div key={idx} className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
+                            {(r.userName || r.userEmail || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{r.userName || 'Anonymous'}</p>
+                            <p className="text-xs text-slate-500">{new Date(r.createdAt).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star key={s} size={14} className={s <= r.rating ? 'text-amber-400' : 'text-slate-200'} fill={s <= r.rating ? 'currentColor' : 'none'} />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-700">{r.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-500 shadow-sm">
+                  No reviews yet. Be the first to share your thoughts!
+                </div>
+              )}
+            </div>
+
+            <div className="border border-slate-200 rounded-2xl p-6 bg-slate-50 h-fit space-y-4 shadow-sm">
+              <h3 className="font-semibold text-slate-900">Write a Review</h3>
+              {reviewError && <div className="text-sm text-red-600">{reviewError}</div>}
+              <form onSubmit={submitReview} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-700 font-medium">Rating</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setReviewForm({ ...reviewForm, rating: s })}
+                        className="transition-transform hover:scale-110"
+                      >
+                        <Star size={24} className={s <= reviewForm.rating ? 'text-amber-400' : 'text-slate-300'} fill={s <= reviewForm.rating ? 'currentColor' : 'none'} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-700 font-medium">Review</label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={reviewForm.comment}
+                    onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                    placeholder="What did you like or dislike?"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview}
+                  className="w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-70"
+                >
+                  {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
 
         <section className="space-y-5">
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">

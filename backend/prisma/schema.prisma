@@ -4,15 +4,16 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String
-  firstName    String
-  lastName     String
+  name         String?
   role         String   @default("customer")
+  isBanned     Boolean  @default(false)
   
   cart          Cart?
   orders        Order[]
@@ -23,11 +24,12 @@ model User {
 model Product {
   id            String   @id @default(uuid())
   name          String
+  slug          String   @unique
   description   String
-  price         Float
-  stockQuantity Int      @default(0)
-  categoryId    String
-  imageUrls     String[]
+  priceCents    Int
+  stock         Int      @default(0)
+  category      String
+  images        String[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   reviews       Review[]
@@ -46,7 +48,7 @@ model CartItem {
   cartId              String
   productId           String
   quantity            Int
-  priceAtTimeOfAdding Float
+  priceAtTimeOfAdding Int
   
   cart                Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
 }
@@ -54,8 +56,13 @@ model CartItem {
 model Order {
   id                String      @id
   userId            String
-  totalAmount       Float
+  totalCents        Int
+  subtotalCents     Int
   status            String
+  paymentMethod     String?
+  shippingAddress   Json?
+  statusHistory     Json?
+  adminNote         String?
   createdAt         DateTime    @default(now())
   appliedCouponCode String?
   
@@ -64,20 +71,21 @@ model Order {
 }
 
 model OrderItem {
-  id        String @id @default(uuid())
-  orderId   String
-  productId String
-  name      String
-  price     Float
-  quantity  Int
+  id         String @id @default(uuid())
+  orderId    String
+  productId  String
+  name       String
+  priceCents Int
+  quantity   Int
   
-  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order      Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model Review {
   id        String   @id @default(uuid())
   rating    Int
   comment   String
+  status    String   @default("pending")
   createdAt DateTime @default(now())
   
   userId    String
@@ -109,4 +117,26 @@ model Coupon {
   usageLimit     Int
   usedCount      Int      @default(0)
   createdAt      DateTime @default(now())
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  image       String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SupportMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String
+  source    String?
+  status    String   @default("new")
+  createdAt DateTime @default(now())
 }

@@ -6,10 +6,15 @@ export class Order {
     public readonly id: string,
     public readonly userId: string,
     public readonly items: OrderItem[],
-    public readonly totalAmount: number,
+    public readonly totalCents: number,
+    public readonly subtotalCents: number,
     public status: OrderStatus = OrderStatus.PENDING,
+    public paymentMethod?: string | null,
+    public shippingAddress?: any | null,
+    public statusHistory?: any | null,
+    public adminNote?: string | null,
     public readonly createdAt: Date = new Date(),
-    public readonly appliedCouponCode?: string
+    public readonly appliedCouponCode?: string | null
   ) {}
 
   public markAsPaid(): void {

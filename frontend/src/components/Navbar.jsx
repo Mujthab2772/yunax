@@ -212,6 +212,15 @@ const Navbar = () => {
                 <Heart size={16} /> Wishlist
               </a>
             )}
+            {user?.role === 'admin' && (
+              <a
+                href="/admin"
+                className="px-4 py-3 text-sm text-amber-700 hover:bg-amber-50 flex items-center gap-2"
+                onClick={() => setOpen(false)}
+              >
+                Admin Dashboard
+              </a>
+            )}
             {!user ? (
               <a
                 href="/login"

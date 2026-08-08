@@ -1,19 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Save, ArrowLeft, Loader2, Trash2 } from 'lucide-react';
+import { Save, ArrowLeft, Loader2, Trash2, Plus } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
-
-const categoryOptions = [
-  'Laptops',
-  'Accessories',
-  'Headphones',
-  'Graphics Cards',
-  'Networking Products',
-  'Gaming',
-  'Desktop PCs',
-  'SSD / HDD',
-  'Power Supply (SMPS)',
-];
 
 const emptyProduct = {
   name: '',
@@ -29,8 +17,9 @@ const AdminEditProduct = () => {
   const [form, setForm] = useState(emptyProduct);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [categoryOptions, setCategoryOptions] = useState([]);
 
   const productId = window.location.pathname.split('/').pop();
 
@@ -43,6 +32,15 @@ const AdminEditProduct = () => {
   })();
 
   useEffect(() => {
+    fetch(`${API}/categories`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCategoryOptions(data.map(c => c.name));
+        }
+      })
+      .catch(console.error);
+
     const fetchProduct = async () => {
       if (!productId) {
         setError('No product ID provided');
@@ -52,7 +50,7 @@ const AdminEditProduct = () => {
 
       try {
         setLoading(true);
-        const res = await fetch(`${API}/products/id/${productId}`);
+        const res = await fetch(`${API}/products/${productId}`);
         if (!res.ok) throw new Error('Product not found');
         const data = await res.json();
         
@@ -79,11 +77,35 @@ const AdminEditProduct = () => {
     setForm((f) => ({ ...f, [key]: value }));
   };
 
-  const addImageUrl = () => {
-    if (!imageUrl.trim()) return;
-    setForm(f => ({ ...f, images: [...f.images, imageUrl.trim()] }));
-    setImageUrl('');
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    try {
+      setUploading(true);
+      const uploadPromises = files.map(async (file) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const res = await fetch(`${API}/products/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error || 'Upload failed');
+        return data.url;
+      });
+
+      const urls = await Promise.all(uploadPromises);
+      setForm(f => ({ ...f, images: [...f.images, ...urls] }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
   };
+
 
   const removeImage = (index) => {
     setForm(f => ({ ...f, images: f.images.filter((_, i) => i !== index) }));
@@ -257,21 +279,13 @@ const AdminEditProduct = () => {
               {/* Media */}
               <div className="md:col-span-2 space-y-4">
                 <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Product Media</h3>
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-slate-100 focus:border-slate-900 outline-none transition-all"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="Enter Image URL (e.g. https://...)"
-                  />
-                  <button
-                    type="button"
-                    onClick={addImageUrl}
-                    className="px-6 py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-                  >
-                    Add
-                  </button>
-                </div>
+                <label className={`cursor-pointer w-full py-10 rounded-2xl border-2 border-dashed ${uploading ? 'border-slate-300 bg-slate-50' : 'border-slate-300 hover:border-slate-900 bg-slate-50'} flex flex-col items-center justify-center gap-2 transition-all`}>
+                  <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
+                    {uploading ? <div className="h-4 w-4 border-2 border-slate-400 border-t-slate-600 rounded-full animate-spin" /> : <Plus size={20} />}
+                  </div>
+                  <span className="text-sm font-semibold text-slate-600">{uploading ? 'Uploading...' : 'Upload Images'}</span>
+                  <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileUpload} disabled={uploading} />
+                </label>
 
                 {form.images.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">

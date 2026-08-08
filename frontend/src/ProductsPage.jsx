@@ -20,6 +20,8 @@ const ProductsPage = () => {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [wishlistSlugs, setWishlistSlugs] = useState([]);
   const [wishlistMessage, setWishlistMessage] = useState('');
+  const [cartMessage, setCartMessage] = useState('');
+  const [cartError, setCartError] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -28,11 +30,11 @@ const ProductsPage = () => {
         const res = await fetch(`${API}/products`);
         if (!res.ok) throw new Error('Failed to load products');
         const data = await res.json();
-        const nextProducts = Array.isArray(data) && data.length > 0 ? data : defaultProducts;
+        const nextProducts = Array.isArray(data) ? data : (data.data || []);
         setProducts(nextProducts);
       } catch (err) {
-        setError('');
-        setProducts(defaultProducts);
+        setError('Could not load products. Please try again later.');
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -91,27 +93,56 @@ const ProductsPage = () => {
     setSort('featured');
   };
 
-  const addToCart = (product) => {
+  const addToCart = async (product) => {
+    if (product.stock === 0) return;
     try {
+      const res = await fetch(`${API}/products/${product.slug}`);
+      if (!res.ok) throw new Error('Failed to verify stock');
+      const freshProduct = await res.json();
+      
+      if (freshProduct.stock !== product.stock) {
+        setProducts((prev) => prev.map(p => p.slug === product.slug ? { ...p, stock: freshProduct.stock } : p));
+      }
+
       const raw = localStorage.getItem('cartItems');
       const existing = raw ? JSON.parse(raw) : [];
       const already = existing.find((i) => i.slug === product.slug);
+      
+      if (freshProduct.stock !== undefined && freshProduct.stock !== null) {
+        if (freshProduct.stock === 0) {
+          setCartError(`Sorry, ${product.name} is now out of stock`);
+          setTimeout(() => setCartError(''), 2000);
+          return;
+        }
+        if (already && already.qty >= freshProduct.stock) {
+          setCartError(`Limit reached for ${product.name}`);
+          setTimeout(() => setCartError(''), 2000);
+          return;
+        }
+      }
+
       if (already) {
-        already.qty = (already.qty || 1) + 1;
+        setCartError('Item already in cart');
+        setTimeout(() => setCartError(''), 2000);
+        return;
       } else {
         existing.push({
           slug: product.slug,
-          name: product.name,
-          spec: product.description || product.category,
-          category: product.category,
-          priceCents: product.priceCents || 0,
+          name: freshProduct.name || product.name,
+          spec: freshProduct.description || freshProduct.category || product.description || product.category,
+          category: freshProduct.category || product.category,
+          priceCents: freshProduct.priceCents || product.priceCents || 0,
           qty: 1,
+          stock: freshProduct.stock,
         });
       }
       localStorage.setItem('cartItems', JSON.stringify(existing));
       window.dispatchEvent(new Event('cart-updated'));
+      setCartMessage(`${product.name} added to cart`);
+      setTimeout(() => setCartMessage(''), 2000);
     } catch (err) {
-      console.error(err);
+      setCartError('Could not add to cart');
+      setTimeout(() => setCartError(''), 2000);
     }
   };
 
@@ -122,7 +153,7 @@ const ProductsPage = () => {
     }
     try {
       const isSaved = wishlistSlugs.includes(product.slug);
-      const nextItems = isSaved ? await removeFromWishlist(product.slug) : await addToWishlist(product);
+      const nextItems = isSaved ? await removeFromWishlist(product) : await addToWishlist(product);
       setWishlistSlugs(nextItems.map((item) => item.slug));
       setWishlistMessage(isSaved ? `${product.name} removed from wishlist.` : `${product.name} added to wishlist.`);
       window.setTimeout(() => setWishlistMessage(''), 1800);
@@ -398,6 +429,16 @@ const ProductsPage = () => {
               {wishlistMessage}
             </div>
           )}
+          {cartMessage && (
+            <div className="mb-4 rounded-[18px] border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+              {cartMessage}
+            </div>
+          )}
+          {cartError && (
+            <div className="mb-4 rounded-[18px] border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+              {cartError}
+            </div>
+          )}
           {!loading && !error && filtered.length === 0 && (
             <div className="space-y-5 py-20 text-center sm:space-y-6 sm:py-24">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 opacity-50 sm:h-20 sm:w-20 sm:rounded-3xl">
@@ -408,19 +449,7 @@ const ProductsPage = () => {
             </div>
           )}
  
-          <motion.div 
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.08 }}
-            variants={{
-              hidden: { opacity: 0 },
-              show: {
-                opacity: 1,
-                transition: { staggerChildren: 0.06, delayChildren: 0.05 }
-              }
-            }}
-            className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4"
-          >
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((product) => {
               const price = `₹${Math.round((product.priceCents || 0) / 100).toLocaleString('en-IN')}`;
               const thumb = product.images?.[0];
@@ -430,12 +459,11 @@ const ProductsPage = () => {
               return (
                 <motion.div
                   key={product._id || product.id || product.slug || product.name}
-                  variants={{
-                    hidden: { opacity: 0, y: 28, scale: 0.96 },
-                    show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } }
-                  }}
+                  initial={{ opacity: 0, y: 28, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
                   onClick={() => product.slug && (window.location.href = `/products/${product.slug}`)}
-                  className="group relative min-w-0"
+                  className="group relative min-w-0 cursor-pointer"
                 >
                   <Tilt maxRotation={8} className="h-full">
                     <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition-all duration-500 hover:border-primary/45 hover:shadow-2xl hover:shadow-primary/5 h-full flex flex-col">
@@ -444,7 +472,7 @@ const ProductsPage = () => {
                           <motion.img 
                             whileHover={{ scale: 1.08 }}
                             src={thumb} alt={product.name} 
-                            className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500" 
+                            className="w-full h-full object-cover transition-transform duration-500" 
                           />
                         ) : (
                           <div className="text-3xl font-black text-slate-200">{product.name?.slice(0, 2)}</div>
@@ -483,7 +511,12 @@ const ProductsPage = () => {
                           </div>
                           
                           <button
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-900/10 transition-colors hover:bg-primary sm:h-11 sm:w-11"
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-lg transition-colors sm:h-11 sm:w-11 ${
+                              stock === 0 
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                                : 'bg-slate-900 text-white shadow-slate-900/10 hover:bg-primary'
+                            }`}
+                            disabled={stock === 0}
                             onClick={(e) => {
                               e.stopPropagation();
                               addToCart(product);
@@ -498,7 +531,7 @@ const ProductsPage = () => {
                 </motion.div>
               );
             })}
-          </motion.div>
+          </div>
         </section>
       </main>
       <Footer />

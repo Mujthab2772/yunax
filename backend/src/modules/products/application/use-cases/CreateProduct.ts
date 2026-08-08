@@ -9,22 +9,16 @@ export class CreateProduct {
     private readonly imageUploader: IImageUploader
   ) {}
 
-  public async execute(data: any, imageBuffer?: Buffer, imageName?: string): Promise<Product> {
-    const imageUrls: string[] = [];
-    
-    if (imageBuffer && imageName) {
-      const url = await this.imageUploader.upload(imageBuffer, imageName);
-      imageUrls.push(url);
-    }
-
+  public async execute(data: any): Promise<Product> {
     const product = new Product(
       crypto.randomUUID(),
       data.name,
+      data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
       data.description,
-      Number(data.price),
-      Number(data.stockQuantity || data.stock_quantity || 0),
-      data.categoryId || data.category_id,
-      imageUrls
+      data.priceCents,
+      data.stock,
+      data.category,
+      data.images || []
     );
 
     return this.productRepository.save(product);

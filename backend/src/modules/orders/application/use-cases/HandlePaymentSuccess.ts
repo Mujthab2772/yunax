@@ -23,8 +23,6 @@ export class HandlePaymentSuccess {
     order.markAsPaid();
     await this.orderRepository.save(order);
 
-    const itemsToDecrement = order.items.map(i => ({ productId: i.productId, quantity: i.quantity }));
-    await this.decrementStock.execute(itemsToDecrement);
 
     const user = await this.userRepository.findById(order.userId);
     if (user) {

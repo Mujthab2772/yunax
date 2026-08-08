@@ -2,10 +2,11 @@ export class Product {
   constructor(
     public readonly id: string,
     public name: string,
+    public slug: string,
     public description: string,
-    public price: number,
-    public stock_quantity: number,
-    public category_id: string,
-    public image_urls: string[]
+    public priceCents: number,
+    public stock: number,
+    public category: string,
+    public images: string[]
   ) {}
 }

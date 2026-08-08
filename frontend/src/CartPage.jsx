@@ -6,6 +6,7 @@ import Footer from './components/Footer';
 import { API } from './lib/api';
 import { getStoredCartItems, reconcileStoredCartWithCatalog, saveStoredCartItems } from './lib/cart';
 import { getAccountKey, migrateAddressBook, getStoredUser, saveAddressBook, saveStoredUser } from './lib/account';
+import { addToWishlist } from './lib/wishlist';
 
 const emptyCheckoutForm = {
   fullName: '',
@@ -96,6 +97,9 @@ const CartPage = () => {
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState('');
+  const [stockIssues, setStockIssues] = useState([]);
+  const [idempotencyKey, setIdempotencyKey] = useState(() => window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36));
+
 
   useEffect(() => {
     saveStoredCartItems(items);
@@ -214,6 +218,7 @@ const CartPage = () => {
               productId: item.productId,
               slug: item.slug,
               quantity: item.qty || 1,
+              priceCents: item.priceCents || 0,
             })),
             shippingAddress: checkoutForm,
           }),
@@ -244,8 +249,41 @@ const CartPage = () => {
     return false;
   };
 
-  const goToStep = (step) => {
+  const goToStep = async (step) => {
     if (canOpenStep(step)) {
+      if (step === 2 || step === 3) {
+        setIsRefreshing(true);
+        try {
+          const res = await fetch(`${API}/products`);
+          if (res.ok) {
+            const catalog = await res.json();
+            const map = new Map(catalog.map(p => [p.slug, p]));
+            const issues = [];
+            const nextItems = items.map(item => {
+              const p = map.get(item.slug);
+              if (p) {
+                if (item.qty > p.stock) {
+                  issues.push({ ...item, actualStock: p.stock });
+                }
+                return { ...item, stock: p.stock };
+              }
+              return item;
+            });
+            
+            setItems(nextItems);
+            
+            if (issues.length > 0) {
+              setStockIssues(issues);
+              setIsRefreshing(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        setIsRefreshing(false);
+      }
+
       setMessage('');
       setCurrentStep(step);
     } else {
@@ -253,9 +291,34 @@ const CartPage = () => {
     }
   };
 
-  const updateQty = (slug, delta) => {
+  const updateQty = async (slug, delta) => {
+    if (delta > 0) {
+      try {
+        const res = await fetch(`${API}/products/${slug}`);
+        if (res.ok) {
+          const freshProduct = await res.json();
+          const currentItem = items.find(i => i.slug === slug);
+          if (freshProduct.stock !== undefined && currentItem) {
+            if (currentItem.qty >= freshProduct.stock) {
+              setMessage(`Only ${freshProduct.stock} units available for this item.`);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Could not verify stock', err);
+      }
+    }
+
     setItems((list) =>
-      list.map((item) => (item.slug === slug ? { ...item, qty: Math.max(1, (item.qty || 1) + delta) } : item))
+      list.map((item) => {
+        if (item.slug === slug) {
+          const newQty = Math.max(1, (item.qty || 1) + delta);
+          const finalQty = item.stock !== undefined && item.stock !== null ? Math.min(newQty, item.stock) : newQty;
+          return { ...item, qty: finalQty };
+        }
+        return item;
+      })
     );
   };
 
@@ -356,59 +419,60 @@ const CartPage = () => {
         throw new Error('Some items were removed because they are no longer available. Please review your cart and try again.');
       }
 
+      const orderRes = await fetch(`${API}/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify({
+          items: hydratedItems.map((item) => ({
+            productId: item.productId,
+            slug: item.slug,
+            quantity: item.qty || 1,
+          })),
+          paymentMethod,
+          shippingAddress,
+          billingDetails,
+        }),
+      });
+
+      if (orderRes.status === 401) {
+        clearCustomerSession();
+        setMessage('Your session expired. Please log in again to continue checkout.');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 900);
+        return;
+      }
+
+      if (!orderRes.ok) {
+        const err = await orderRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Could not initiate payment order.');
+      }
+
+      const paymentData = await orderRes.json();
+
       if (paymentMethod === 'razorpay') {
-        const orderRes = await fetch(`${API}/payments/create-order`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            items: hydratedItems.map((item) => ({
-              productId: item.productId,
-              slug: item.slug,
-              quantity: item.qty || 1,
-            })),
-            shippingAddress,
-            billingDetails,
-          }),
-        });
-
-        if (orderRes.status === 401) {
-          clearCustomerSession();
-          setMessage('Your session expired. Please log in again to continue checkout.');
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 900);
-          return;
-        }
-
-        if (!orderRes.ok) {
-          const err = await orderRes.json().catch(() => ({}));
-          throw new Error(err.error || 'Could not initiate payment order.');
-        }
-
-        const paymentData = await orderRes.json();
-
-        // Dynamically load Razorpay Checkout script
         const scriptLoaded = await loadRazorpayScript();
         if (!scriptLoaded) {
           throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
         }
 
         const options = {
-          key: paymentData.keyId,
-          amount: paymentData.amount,
-          currency: paymentData.currency,
+          key: paymentData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test',
+          amount: paymentData.data.totalCents,
+          currency: 'INR',
           name: 'Yunax Digital',
           description: 'Payment for your order',
-          order_id: paymentData.orderId,
+          order_id: paymentData.clientSecret, // this is the Razorpay order ID
           handler: async function (response) {
             try {
               setIsPaying(true);
               setMessage('Verifying payment status...');
 
-              const verifyRes = await fetch(`${API}/payments/verify`, {
+              const verifyRes = await fetch(`${API}/orders/verify`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -418,6 +482,7 @@ const CartPage = () => {
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
+                  order_id: paymentData.data.id
                 }),
               });
 
@@ -457,37 +522,7 @@ const CartPage = () => {
         return;
       }
 
-      const orderRes = await fetch(`${API}/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          items: hydratedItems.map((item) => ({
-            productId: item.productId,
-            slug: item.slug,
-            quantity: item.qty || 1,
-          })),
-          paymentMethod,
-          shippingAddress,
-          billingDetails,
-        }),
-      });
 
-      if (orderRes.status === 401) {
-        clearCustomerSession();
-        setMessage('Your session expired. Please log in again to continue checkout.');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 900);
-        return;
-      }
-
-      if (!orderRes.ok) {
-        const err = await orderRes.json().catch(() => ({}));
-        throw new Error(err.error || 'Could not place the order.');
-      }
 
       setMessage(
         paymentMethod === 'cod'
@@ -516,6 +551,59 @@ const CartPage = () => {
   return (
     <div className="premium-shell min-h-screen text-slate-900">
       <Navbar />
+
+      {stockIssues.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-slate-900">Stock Availability Changed</h3>
+            <p className="mt-2 text-sm text-slate-600">Some items in your cart don't have enough stock available. Please resolve these issues to continue.</p>
+            
+            <div className="mt-5 space-y-4 max-h-[60vh] overflow-y-auto">
+              {stockIssues.map(issue => (
+                <div key={issue.slug} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="font-semibold text-slate-900">{issue.name}</p>
+                  <p className="mt-1 text-sm text-slate-600">You requested <span className="font-semibold text-slate-900">{issue.qty}</span>, but only <span className="font-semibold text-rose-600">{issue.actualStock}</span> are available.</p>
+                  <div className="mt-3 flex gap-3">
+                    {issue.actualStock > 0 && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          updateQty(issue.slug, issue.actualStock - issue.qty);
+                          setStockIssues(current => current.filter(i => i.slug !== issue.slug));
+                        }}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                      >
+                        Reduce to {issue.actualStock}
+                      </button>
+                    )}
+                    <button 
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await addToWishlist(issue);
+                          setMessage(`${issue.name} moved to wishlist`);
+                        } catch (err) {
+                          setMessage(err.message || 'Could not move to wishlist, item removed from cart');
+                        } finally {
+                          removeItem(issue.slug);
+                          setStockIssues(current => current.filter(i => i.slug !== issue.slug));
+                        }
+                      }}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-slate-50"
+                    >
+                      Move to wishlist
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {stockIssues.length === 0 && (
+               <button type="button" onClick={() => setStockIssues([])} className="mt-5 w-full rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white">Continue</button>
+            )}
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-7xl px-4 pb-14 pt-24 md:px-6 md:pb-16 md:pt-28">
         <section className="premium-panel overflow-hidden rounded-[20px] p-4 md:rounded-[28px] md:p-8">

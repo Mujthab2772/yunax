@@ -19,7 +19,7 @@ const AdminGuard = ({ children }) => {
     const verifyAdmin = async () => {
       let token = '';
       try {
-        token = localStorage.getItem('admin_token') || '';
+        token = localStorage.getItem('admin_token') || localStorage.getItem('token') || '';
       } catch (err) {
         token = '';
       }
@@ -42,6 +42,7 @@ const AdminGuard = ({ children }) => {
           return;
         }
 
+        localStorage.setItem('admin_token', token);
         localStorage.setItem('admin_user', JSON.stringify(user));
         if (active) setStatus('ready');
       } catch (err) {
@@ -58,15 +59,7 @@ const AdminGuard = ({ children }) => {
   }, []);
 
   if (status !== 'ready') {
-    return (
-      <div className="min-h-screen bg-slate-950 px-6 py-10 text-white">
-        <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-200">Admin access</p>
-          <h1 className="mt-3 text-2xl font-bold">Verifying administrator session</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Only approved admin accounts can open this area.</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return children;

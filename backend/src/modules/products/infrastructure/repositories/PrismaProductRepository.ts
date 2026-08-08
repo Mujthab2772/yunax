@@ -9,27 +9,36 @@ export class PrismaProductRepository implements IProductRepository {
       where: { id: product.id },
       update: {
         name: product.name,
+        slug: product.slug,
         description: product.description,
-        price: product.price,
-        stockQuantity: product.stock_quantity,
-        categoryId: product.category_id,
-        imageUrls: product.image_urls
+        priceCents: product.priceCents,
+        stock: product.stock,
+        category: product.category,
+        images: product.images
       },
       create: {
         id: product.id,
         name: product.name,
+        slug: product.slug,
         description: product.description,
-        price: product.price,
-        stockQuantity: product.stock_quantity,
-        categoryId: product.category_id,
-        imageUrls: product.image_urls
+        priceCents: product.priceCents,
+        stock: product.stock,
+        category: product.category,
+        images: product.images
       }
     });
     return this.mapToEntity(record);
   }
 
-  public async getById(id: string): Promise<Product | null> {
-    const record = await prisma.product.findUnique({ where: { id } });
+  public async getById(idOrSlug: string): Promise<Product | null> {
+    const record = await prisma.product.findFirst({ 
+      where: { 
+        OR: [
+          { id: idOrSlug },
+          { slug: idOrSlug }
+        ]
+      } 
+    });
     if (!record) return null;
     return this.mapToEntity(record);
   }
@@ -45,13 +54,13 @@ export class PrismaProductRepository implements IProductRepository {
     }
 
     if (query.categoryId) {
-      where.categoryId = query.categoryId;
+      where.category = query.categoryId;
     }
 
     if (query.minPrice !== undefined || query.maxPrice !== undefined) {
-      where.price = {};
-      if (query.minPrice !== undefined) where.price.gte = query.minPrice;
-      if (query.maxPrice !== undefined) where.price.lte = query.maxPrice;
+      where.priceCents = {};
+      if (query.minPrice !== undefined) where.priceCents.gte = query.minPrice;
+      if (query.maxPrice !== undefined) where.priceCents.lte = query.maxPrice;
     }
 
     const [totalCount, records] = await Promise.all([
@@ -71,14 +80,14 @@ export class PrismaProductRepository implements IProductRepository {
   }
 
   public async getByCategory(categoryId: string): Promise<Product[]> {
-    const records = await prisma.product.findMany({ where: { categoryId } });
+    const records = await prisma.product.findMany({ where: { category: categoryId } });
     return records.map(this.mapToEntity);
   }
 
   public async updateStock(id: string, amount: number): Promise<Product> {
     const record = await prisma.product.update({
       where: { id },
-      data: { stockQuantity: { increment: amount } }
+      data: { stock: { increment: amount } }
     });
     return this.mapToEntity(record);
   }
@@ -88,29 +97,31 @@ export class PrismaProductRepository implements IProductRepository {
       where: { id: product.id },
       data: {
         name: product.name,
+        slug: product.slug,
         description: product.description,
-        price: product.price,
-        stockQuantity: product.stock_quantity,
-        categoryId: product.category_id,
-        imageUrls: product.image_urls
+        priceCents: product.priceCents,
+        stock: product.stock,
+        category: product.category,
+        images: product.images
       }
     });
     return this.mapToEntity(record);
   }
 
   public async delete(id: string): Promise<void> {
-    await prisma.product.delete({ where: { id } }).catch(() => {});
+    await prisma.product.delete({ where: { id } });
   }
 
   private mapToEntity(record: any): Product {
     return new Product(
       record.id,
       record.name,
+      record.slug,
       record.description,
-      record.price,
-      record.stockQuantity,
-      record.categoryId,
-      record.imageUrls
+      record.priceCents,
+      record.stock,
+      record.category,
+      record.images
     );
   }
 }

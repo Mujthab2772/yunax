@@ -5,10 +5,10 @@ import { ProductQuery, PaginatedResult } from '../../application/queries/Product
 export class InMemoryProductRepository implements IProductRepository {
   // Temporary database array
   private products: Product[] = [
-    new Product('1', 'Laptop', 'High-performance laptop', 1200, 50, 'electronics', []),
-    new Product('2', 'Headphones', 'Noise-cancelling headphones', 250, 100, 'electronics', []),
-    new Product('3', 'Keyboard', 'Mechanical keyboard', 150, 75, 'peripherals', []),
-    new Product('4', 'Desk Chair', 'Ergonomic office chair', 300, 20, 'furniture', []),
+    new Product('1', 'Laptop', 'laptop', 'High-performance laptop', 120000, 50, 'electronics', []),
+    new Product('2', 'Headphones', 'headphones', 'Noise-cancelling headphones', 25000, 100, 'electronics', []),
+    new Product('3', 'Keyboard', 'keyboard', 'Mechanical keyboard', 15000, 75, 'peripherals', []),
+    new Product('4', 'Desk Chair', 'desk-chair', 'Ergonomic office chair', 30000, 20, 'furniture', [])
   ];
 
   public async save(product: Product): Promise<Product> {
@@ -35,15 +35,15 @@ export class InMemoryProductRepository implements IProductRepository {
     }
 
     if (query.categoryId) {
-      filtered = filtered.filter(p => p.category_id === query.categoryId);
+      filtered = filtered.filter(p => p.category === query.categoryId);
     }
 
     if (query.minPrice !== undefined) {
-      filtered = filtered.filter(p => p.price >= query.minPrice!);
+      filtered = filtered.filter(p => p.priceCents >= query.minPrice!);
     }
     
     if (query.maxPrice !== undefined) {
-      filtered = filtered.filter(p => p.price <= query.maxPrice!);
+      filtered = filtered.filter(p => p.priceCents <= query.maxPrice!);
     }
 
     const totalCount = filtered.length;
@@ -58,7 +58,7 @@ export class InMemoryProductRepository implements IProductRepository {
   }
 
   public async getByCategory(categoryId: string): Promise<Product[]> {
-    return this.products.filter((p) => p.category_id === categoryId);
+    return this.products.filter((p) => p.category === categoryId);
   }
 
   public async updateStock(id: string, newStock: number): Promise<Product> {
@@ -69,7 +69,7 @@ export class InMemoryProductRepository implements IProductRepository {
     }
 
     const product = this.products[productIndex]!;
-    product.stock_quantity = newStock;
+    product.stock = newStock;
     return product;
   }
 

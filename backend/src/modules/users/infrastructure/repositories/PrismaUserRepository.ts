@@ -9,17 +9,17 @@ export class PrismaUserRepository implements IUserRepository {
       update: {
         email: user.email,
         passwordHash: user.passwordHash,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role
+        name: user.name,
+        role: user.role,
+        isBanned: user.isBanned
       },
       create: {
         id: user.id,
         email: user.email,
         passwordHash: user.passwordHash,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role
+        name: user.name,
+        role: user.role,
+        isBanned: user.isBanned
       }
     });
     return this.mapToEntity(record);
@@ -43,14 +43,25 @@ export class PrismaUserRepository implements IUserRepository {
     });
   }
 
+  public async listAll(): Promise<User[]> {
+    const records = await prisma.user.findMany({
+      orderBy: { email: 'asc' }
+    });
+    return records.map(record => this.mapToEntity(record));
+  }
+
+  public async delete(id: string): Promise<void> {
+    await prisma.user.delete({ where: { id } }).catch(() => {});
+  }
+
   private mapToEntity(record: any): User {
     return new User(
       record.id,
       record.email,
       record.passwordHash,
-      record.firstName,
-      record.lastName,
-      record.role as UserRole
+      record.name,
+      record.role as UserRole,
+      record.isBanned
     );
   }
 }

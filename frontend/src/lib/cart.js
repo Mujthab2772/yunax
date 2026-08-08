@@ -35,6 +35,7 @@ export const addProductToStoredCart = (product) => {
       images: Array.isArray(product.images) ? product.images.filter(Boolean) : [],
       priceCents: product.priceCents || 0,
       qty: 1,
+      stock: product.stock,
     });
   }
 
@@ -66,6 +67,7 @@ export const reconcileStoredCartWithCatalog = async () => {
           images: Array.isArray(product.images) ? product.images.filter(Boolean) : item.images || [],
           priceCents: product.priceCents ?? item.priceCents ?? 0,
           qty: Math.max(1, item.qty || 1),
+          stock: product.stock,
         };
       })
       .filter(Boolean);

@@ -32,7 +32,7 @@ export class NodemailerEmailService implements IEmailService {
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.name}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.quantity}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${item.price}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${(item.priceCents / 100).toFixed(2)}</td>
       </tr>
     `).join('');
 
@@ -52,7 +52,7 @@ export class NodemailerEmailService implements IEmailService {
             ${itemsHtml}
           </tbody>
         </table>
-        <h3 style="text-align: right; margin-top: 20px;">Total: $${order.totalAmount}</h3>
+        <h3 style="text-align: right; margin-top: 20px;">Total: $${(order.totalCents / 100).toFixed(2)}</h3>
       </div>
     `;
   }

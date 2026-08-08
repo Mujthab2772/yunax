@@ -10,11 +10,24 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+
+  const validate = () => {
+    const errors = {};
+    if (!email.trim()) errors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Invalid email format';
+    
+    if (!password) errors.password = 'Password is required';
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    if (!validate()) return;
     try {
       setLoading(true);
       const res = await fetch(`${API}/auth/login`, {
@@ -59,12 +72,12 @@ const LoginPage = () => {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-slate-900 outline-none transition"
+                    onChange={(e) => { setEmail(e.target.value); setFieldErrors(f => ({ ...f, email: '' })); }}
+                    className={`w-full pl-11 pr-4 py-3 rounded-xl border ${fieldErrors.email ? 'border-rose-300' : 'border-slate-200'} focus:border-slate-900 outline-none transition`}
                     placeholder="you@example.com"
-                    required
                   />
                 </div>
+                {fieldErrors.email && <p className="text-xs text-rose-500 font-medium ml-1 mt-1">{fieldErrors.email}</p>}
               </div>
 
               <div className="space-y-2">
@@ -83,10 +96,9 @@ const LoginPage = () => {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-11 pr-12 py-3 rounded-xl border border-slate-200 focus:border-slate-900 outline-none transition"
+                    onChange={(e) => { setPassword(e.target.value); setFieldErrors(f => ({ ...f, password: '' })); }}
+                    className={`w-full pl-11 pr-12 py-3 rounded-xl border ${fieldErrors.password ? 'border-rose-300' : 'border-slate-200'} focus:border-slate-900 outline-none transition`}
                     placeholder="••••••••"
-                    required
                   />
                   <button
                     type="button"
@@ -96,6 +108,7 @@ const LoginPage = () => {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {fieldErrors.password && <p className="text-xs text-rose-500 font-medium ml-1 mt-1">{fieldErrors.password}</p>}
               </div>
 
               {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-100 animate-shake">{error}</div>}

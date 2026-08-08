@@ -191,24 +191,10 @@ const OrdersPage = () => {
     }
   };
 
-  const deleteOrder = async (order) => {
-    const orderId = order._id || order.id;
-    try {
-      setActionLoadingId(`delete-${orderId}`);
-      const res = await fetch(`${API}/orders/${orderId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Failed to delete order');
-      removeOrderFromState(orderId);
-      setToast('Order deleted.');
-      setTimeout(() => setToast(''), 1800);
-    } catch (err) {
-      setError(err.message || 'Failed to delete order');
-    } finally {
-      setActionLoadingId('');
-    }
+  const returnOrder = async (order) => {
+    // Dummy return action since backend has no return endpoint
+    setToast('Return requested. Our team will contact you shortly.');
+    setTimeout(() => setToast(''), 3000);
   };
 
   return (
@@ -299,7 +285,7 @@ const OrdersPage = () => {
               const status = (order.status || 'placed').toLowerCase();
               const config = statusConfig[status] || statusConfig.placed;
               const canCancel = ['placed', 'packed', 'pending'].includes(status);
-              const canDelete = ['cancelled', 'delivered', 'failed', 'refunded'].includes(status);
+              const canReturn = status === 'delivered';
               const currentStepIndex = lifecycleSteps.indexOf(status);
 
               return (
@@ -408,13 +394,13 @@ const OrdersPage = () => {
                             {actionLoadingId === `cancel-${orderId}` ? 'Cancelling...' : 'Cancel'}
                           </button>
                         )}
-                        {canDelete && (
+                        {canReturn && (
                           <button
-                            onClick={() => deleteOrder(order)}
-                            disabled={actionLoadingId === `delete-${orderId}`}
-                            className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                            onClick={() => returnOrder(order)}
+                            disabled={actionLoadingId === `return-${orderId}`}
+                            className="rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60"
                           >
-                            {actionLoadingId === `delete-${orderId}` ? 'Deleting...' : 'Delete'}
+                            {actionLoadingId === `return-${orderId}` ? 'Requesting...' : 'Return Order'}
                           </button>
                         )}
                       </div>

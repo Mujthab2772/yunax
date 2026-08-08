@@ -5,6 +5,7 @@ import { ICouponRepository } from '../../../coupons/domain/repositories/ICouponR
 import { IPaymentGateway } from '../ports/IPaymentGateway';
 import { Order } from '../../domain/entities/Order';
 import { OrderItem } from '../../domain/entities/OrderItem';
+import { OrderStatus } from '../../domain/entities/OrderStatus';
 import { ApiError } from '../../../../utils/ApiError';
 import crypto from 'crypto';
 
@@ -17,33 +18,39 @@ export class PlaceOrder {
     private readonly paymentGateway: IPaymentGateway
   ) {}
 
-  public async execute(userId: string, couponCode?: string): Promise<{ order: Order; clientSecret: string }> {
-    const cart = await this.cartRepository.getByUserId(userId);
+  public async execute(
+    userId: string,
+    items: any[],
+    shippingAddress: any,
+    paymentMethod: string,
+    couponCode?: string
+  ): Promise<{ order: Order; clientSecret?: string }> {
     
-    if (!cart || cart.items.length === 0) {
-      throw new ApiError(400, 'Cannot place an order with an empty cart');
+    if (!items || items.length === 0) {
+      throw new ApiError(400, 'Cannot place an order with empty items');
     }
 
     const orderItems: OrderItem[] = [];
-    for (const item of cart.items) {
+    for (const item of items) {
       const product = await this.productRepository.getById(item.productId);
       if (!product) {
         throw new ApiError(404, `Product ${item.productId} no longer exists`);
       }
 
-      if (product.stock_quantity < item.quantity) {
+      if (product.stock < item.quantity) {
         throw new ApiError(400, `Insufficient stock for ${product.name}`);
       }
 
       orderItems.push(new OrderItem(
         product.id,
         product.name,
-        item.priceAtTimeOfAdding,
+        product.priceCents,
         item.quantity
       ));
     }
 
-    let totalAmount = cart.totalPrice();
+    let subtotalAmount = orderItems.reduce((sum, item) => sum + item.priceCents * item.quantity, 0);
+    let totalAmount = subtotalAmount;
     let appliedCouponCode: string | undefined = undefined;
 
     if (couponCode) {
@@ -57,13 +64,55 @@ export class PlaceOrder {
     }
 
     const orderId = crypto.randomUUID();
-    const order = new Order(orderId, userId, orderItems, totalAmount, undefined, undefined, appliedCouponCode);
+    const order = new Order(
+      orderId, 
+      userId, 
+      orderItems, 
+      totalAmount, 
+      subtotalAmount, 
+      paymentMethod === 'cod' ? OrderStatus.PENDING : OrderStatus.PAYMENT_PENDING, 
+      paymentMethod, 
+      shippingAddress, 
+      [], 
+      undefined, 
+      undefined, 
+      appliedCouponCode
+    );
 
-    await this.orderRepository.save(order);
-    await this.cartRepository.clear(userId);
+    let clientSecret = '';
+    
+    // 1. Create Payment Intent FIRST
+    if (paymentMethod !== 'cod' && paymentMethod !== 'bank_transfer') {
+      try {
+        const paymentInfo = await this.paymentGateway.createPaymentIntent(totalAmount, 'inr', orderId); // Changed to INR assuming razorpay
+        clientSecret = paymentInfo.clientSecret;
+      } catch (error: any) {
+        throw new ApiError(500, `Payment Gateway Error: ${error.message}`);
+      }
+    }
 
-    const paymentInfo = await this.paymentGateway.createPaymentIntent(totalAmount, 'usd', orderId);
+    // 2. Atomically save order and reserve stock
+    try {
+      await this.orderRepository.saveWithStockReservation(order, orderItems.map(i => ({ 
+        productId: i.productId, 
+        quantity: i.quantity,
+        name: i.name
+      })));
+    } catch (error: any) {
+      if (error.message.includes('INSUFFICIENT_STOCK')) {
+        throw new ApiError(400, error.message);
+      }
+      throw new ApiError(500, `Failed to place order: ${error.message}`);
+    }
 
-    return { order, clientSecret: paymentInfo.clientSecret };
+    // 3. Clear cart
+    try {
+      await this.cartRepository.clear(userId);
+    } catch(e) {
+      // We can log this, but it shouldn't fail the order if the cart couldn't be cleared.
+      console.error('Failed to clear cart:', e);
+    }
+
+    return { order, clientSecret };
   }
 }

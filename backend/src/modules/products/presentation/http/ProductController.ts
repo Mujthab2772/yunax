@@ -17,8 +17,8 @@ export class ProductController {
   public getAllProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query: any = {
-        page: req.query.page ? Number(req.query.page) : 1,
-        limit: req.query.limit ? Number(req.query.limit) : 10,
+        page: Math.max(1, req.query.page ? Number(req.query.page) : 1),
+        limit: Math.min(100, req.query.limit ? Number(req.query.limit) : 20),
       };
 
       if (req.query.search) query.search = req.query.search as string;
@@ -27,7 +27,12 @@ export class ProductController {
       if (req.query.maxPrice) query.maxPrice = Number(req.query.maxPrice);
 
       const result = await this.listProducts.execute(query);
-      res.status(200).json({ success: true, ...result });
+      
+      if (!req.query.page && !req.query.limit) {
+        res.status(200).json(result.data);
+      } else {
+        res.status(200).json(result);
+      }
     } catch (error) {
       next(error);
     }
@@ -37,7 +42,7 @@ export class ProductController {
     try {
       const id = req.params['id'] as string;
       const product = await this.getProductById.execute(id);
-      res.status(200).json({ success: true, data: product });
+      res.status(200).json(product);
     } catch (error) {
       next(error); 
     }
@@ -45,10 +50,8 @@ export class ProductController {
 
   public createProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const imageBuffer = req.file?.buffer;
-      const imageName = req.file?.originalname;
-      const product = await this.createProductUseCase.execute(req.body, imageBuffer, imageName);
-      res.status(201).json({ success: true, data: product });
+      const product = await this.createProductUseCase.execute(req.body);
+      res.status(201).json(product);
     } catch (error) {
       next(error);
     }
@@ -58,7 +61,7 @@ export class ProductController {
     try {
       const id = req.params.id as string;
       const product = await this.updateProductUseCase.execute(id, req.body);
-      res.status(200).json({ success: true, data: product });
+      res.status(200).json(product);
     } catch (error) {
       next(error);
     }
@@ -68,7 +71,7 @@ export class ProductController {
     try {
       const id = req.params.id as string;
       await this.deleteProductUseCase.execute(id);
-      res.status(200).json({ success: true, message: 'Product deleted' });
+      res.status(200).json({ message: 'Product deleted' });
     } catch (error) {
       next(error);
     }

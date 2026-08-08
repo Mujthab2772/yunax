@@ -29,4 +29,15 @@ export class InMemoryUserRepository implements IUserRepository {
   public async countCustomers(): Promise<number> {
     return this.users.filter(u => u.role === 'customer').length;
   }
+
+  public async listAll(): Promise<User[]> {
+    return Array.from(this.users);
+  }
+
+  public async delete(id: string): Promise<void> {
+    const index = this.users.findIndex(u => u.id === id);
+    if (index !== -1) {
+      this.users.splice(index, 1);
+    }
+  }
 }
