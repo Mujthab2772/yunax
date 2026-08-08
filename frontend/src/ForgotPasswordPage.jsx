@@ -305,6 +305,16 @@ const ForgotPasswordPage = () => {
                         {loading ? 'Verifying...' : 'Verify Code'}
                       </button>
                     </div>
+                    <div className="text-center pt-2">
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={handleSendOtp}
+                        className="text-sm font-semibold text-slate-500 transition hover:text-slate-900 hover:underline disabled:opacity-50 disabled:no-underline"
+                      >
+                        Didn't receive the code? Resend OTP
+                      </button>
+                    </div>
                   </motion.form>
                 )}
 
