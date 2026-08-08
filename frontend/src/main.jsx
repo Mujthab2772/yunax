@@ -32,6 +32,25 @@ import AdminEditProduct from './admin/AdminEditProduct';
 import AdminSupport from './admin/AdminSupport';
 import AdminCategories from './admin/AdminCategories';
 import AdminReviews from './admin/AdminReviews';
+
+// Global Fetch Interceptor to include cookies
+const originalFetch = window.fetch;
+window.fetch = async function(url, options = {}) {
+  // Always include cookies for cross-origin or same-origin backend calls
+  options.credentials = 'include';
+  
+  // Remove Authorization header since we now use HttpOnly cookies
+  if (options.headers) {
+    if (options.headers instanceof Headers) {
+      options.headers.delete('Authorization');
+    } else if (typeof options.headers === 'object') {
+      delete options.headers['Authorization'];
+    }
+  }
+  
+  return originalFetch.call(this, url, options);
+};
+
 import PageShell from './components/motion/PageShell';
 import './index.css';
 

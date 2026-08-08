@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../errors/AppError';
 import { ZodError } from 'zod';
+import { logger } from '../logging/logger';
 
 export function ErrorHandler(err: any, req: Request, res: Response, next: NextFunction) {
   let statusCode = 500;
@@ -21,6 +22,11 @@ export function ErrorHandler(err: any, req: Request, res: Response, next: NextFu
     } catch {
       message = err.message;
     }
+  }
+
+  // Log all 500 errors or specific critical failures
+  if (statusCode >= 500) {
+    logger.error({ err, req: { method: req.method, url: req.url, body: req.body } }, 'Unhandled Server Error');
   }
 
   res.status(statusCode).json({

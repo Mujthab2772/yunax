@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 
 // Import layers
 import { PrismaProductRepository } from './modules/products/infrastructure/repositories/PrismaProductRepository';
@@ -127,16 +128,30 @@ const userRepository = new PrismaUserRepository();
 const passwordHasher = new BcryptPasswordHasher();
 const tokenService = new JwtTokenService();
 
+import { ForgotPassword } from './modules/users/application/use-cases/ForgotPassword';
+import { ResetPassword } from './modules/users/application/use-cases/ResetPassword';
+import { VerifyResetOtp } from './modules/users/application/use-cases/VerifyResetOtp';
+
 const registerUser = new RegisterUser(userRepository, passwordHasher, tokenService);
 const loginUser = new LoginUser(userRepository, passwordHasher, tokenService);
 const getUserProfile = new GetUserProfile(userRepository);
+const emailService = new NodemailerEmailService();
 
-const authController = new AuthController(registerUser, loginUser, getUserProfile);
+const forgotPasswordUseCase = new ForgotPassword(userRepository, emailService);
+const verifyResetOtpUseCase = new VerifyResetOtp(userRepository);
+const resetPasswordUseCase = new ResetPassword(userRepository, passwordHasher);
+
+const authController = new AuthController(
+  registerUser, 
+  loginUser, 
+  getUserProfile, 
+  forgotPasswordUseCase,
+  verifyResetOtpUseCase,
+  resetPasswordUseCase
+);
 
 const authMiddleware = new AuthMiddleware(tokenService);
 const adminMiddleware = new AdminMiddleware();
-const emailService = new NodemailerEmailService();
-
 const authRoutes = createAuthRoutes(authController, authMiddleware);
 
 const listUsers = new ListUsers(userRepository);
@@ -276,6 +291,7 @@ const categoryRoutes = createCategoryRoutes(categoryController, authMiddleware, 
 // 11. Middleware & Route Registration
 // ==========================================
 app.use(helmet());
+app.use(cookieParser());
 
 const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, 'http://localhost:5173'] : ['http://localhost:5173'];
 app.use(cors({

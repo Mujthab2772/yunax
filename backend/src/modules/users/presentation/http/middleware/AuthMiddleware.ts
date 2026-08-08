@@ -15,15 +15,15 @@ export class AuthMiddleware {
   constructor(private readonly tokenService: ITokenService) {}
 
   public requireAuth = (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next(new ApiError(401, 'Unauthorized: No token provided'));
+    let token = req.cookies?.jwt;
+    
+    // Fallback to Bearer token if cookie is not present
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
     }
 
-    const token = authHeader.split(' ')[1];
-    
     if (!token) {
-        return next(new ApiError(401, 'Unauthorized: No token provided'));
+      return next(new ApiError(401, 'Unauthorized: No token provided'));
     }
     
     try {

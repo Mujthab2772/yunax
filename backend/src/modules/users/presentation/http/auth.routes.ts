@@ -81,6 +81,10 @@ export function createAuthRoutes(authController: AuthController, authMiddleware:
   
   router.post('/admin/login', authLimiter, validateRequest(loginSchema), authController.adminLogin);
   router.post('/admin/signup', authLimiter, validateRequest(registerSchema), authController.adminSignup);
+  router.post('/logout', authController.logout);
+  router.post('/forgot-password', authLimiter, authController.forgotPassword);
+  router.post('/verify-reset-otp', authLimiter, authController.verifyResetOtp);
+  router.post('/reset-password', authLimiter, authController.resetPassword);
   
   // Protected Routes
   router.get('/me', authMiddleware.requireAuth, authController.getMe);
