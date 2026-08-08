@@ -3,7 +3,7 @@ import { IProductRepository } from '../../../products/domain/repositories/IProdu
 import { Cart } from '../../domain/entities/Cart';
 import { ApiError } from '../../../../utils/ApiError';
 
-export class AddItemToCart {
+export class UpdateCartItemQuantity {
   constructor(
     private readonly cartRepository: ICartRepository,
     private readonly productRepository: IProductRepository
@@ -14,8 +14,12 @@ export class AddItemToCart {
       throw new ApiError(400, 'Invalid productId: must be a string');
     }
     
-    if (typeof quantity !== 'number' || quantity <= 0 || !Number.isInteger(quantity) || quantity > 1000) {
+    if (typeof quantity !== 'number' || quantity < 0 || !Number.isInteger(quantity) || quantity > 1000) {
       throw new ApiError(400, 'Invalid quantity');
+    }
+
+    if (quantity === 0) {
+      return this.cartRepository.removeItem(userId, productId);
     }
 
     const product = await this.productRepository.getById(productId);
@@ -23,14 +27,10 @@ export class AddItemToCart {
       throw new ApiError(404, 'Product not found');
     }
 
-    const cart = await this.cartRepository.getByUserId(userId);
-    const existingItem = cart?.items.find(i => i.productId === productId);
-    const newQuantity = (existingItem?.quantity || 0) + quantity;
-
-    if (newQuantity > product.stock) {
+    if (quantity > product.stock) {
       throw new ApiError(400, 'Insufficient stock');
     }
 
-    return this.cartRepository.addOrUpdateItem(userId, product.id, quantity, product.priceCents);
+    return this.cartRepository.updateItemQuantity(userId, product.id, quantity);
   }
 }

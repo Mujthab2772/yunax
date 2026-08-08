@@ -6,12 +6,10 @@ export class RemoveItemFromCart {
   constructor(private readonly cartRepository: ICartRepository) {}
 
   public async execute(userId: string, productId: string): Promise<Cart> {
-    const cart = await this.cartRepository.getByUserId(userId);
-    if (!cart) {
-      throw new ApiError(404, 'Cart not found');
+    if (typeof productId !== 'string' || !productId.trim()) {
+      throw new ApiError(400, 'Invalid productId: must be a string');
     }
-
-    cart.removeItem(productId);
-    return this.cartRepository.save(cart);
+    
+    return this.cartRepository.removeItem(userId, productId);
   }
 }

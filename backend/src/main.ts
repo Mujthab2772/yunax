@@ -42,8 +42,11 @@ import { AdminMiddleware } from './modules/users/presentation/http/middleware/Ad
 // Cart Module Imports
 // import { InMemoryCartRepository } from './modules/cart/infrastructure/repositories/InMemoryCartRepository';
 import { PrismaCartRepository } from './modules/cart/infrastructure/repositories/PrismaCartRepository';
-import { AddItemToCart } from './modules/cart/application/use-cases/AddItemToCart';
 import { GetCartByUserId } from './modules/cart/application/use-cases/GetCartByUserId';
+import { AddItemToCart } from './modules/cart/application/use-cases/AddItemToCart';
+import { UpdateCartItemQuantity } from './modules/cart/application/use-cases/UpdateCartItemQuantity';
+import { RemoveItemFromCart } from './modules/cart/application/use-cases/RemoveItemFromCart';
+import { ClearCart } from './modules/cart/application/use-cases/ClearCart';
 import { CartController } from './modules/cart/presentation/http/CartController';
 import { createCartRoutes } from './modules/cart/presentation/http/cart.routes';
 
@@ -189,8 +192,17 @@ const productRoutes = createProductRoutes(productController, uploadController, a
 const cartRepository = new PrismaCartRepository(); // <-- The Swap!
 const getCartByUserId = new GetCartByUserId(cartRepository);
 const addItemToCart = new AddItemToCart(cartRepository, productRepository);
+const updateCartItemQuantity = new UpdateCartItemQuantity(cartRepository, productRepository);
+const removeItemFromCart = new RemoveItemFromCart(cartRepository);
+const clearCartUseCase = new ClearCart(cartRepository);
 
-const cartController = new CartController(getCartByUserId, addItemToCart);
+const cartController = new CartController(
+  getCartByUserId, 
+  addItemToCart, 
+  updateCartItemQuantity, 
+  removeItemFromCart, 
+  clearCartUseCase
+);
 const cartRoutes = createCartRoutes(cartController, authMiddleware);
 
 // ==========================================
@@ -330,6 +342,7 @@ app.use('/products', productRoutes);
 app.use('/products/:id/reviews', reviewRoutes);
 app.use('/orders', orderRoutes);
 app.use('/wishlist', wishlistRoutes);
+app.use('/cart', cartRoutes);
 app.use('/coupons', couponRoutes);
 app.use('/admin/analytics', analyticsRoutes);
 app.use('/categories', categoryRoutes);

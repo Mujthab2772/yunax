@@ -1,4 +1,5 @@
 import pino from 'pino';
+import fs from 'fs';
 
 export const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
@@ -10,11 +11,8 @@ export const logger = pino({
     'req.body.token',
     'req.body.otp',
     'res.headers["set-cookie"]'
-  ],
-  transport: process.env.NODE_ENV === 'development'
-    ? {
-        target: 'pino-pretty',
-        options: { colorize: true }
-      }
-    : undefined // In production, log as raw JSON
-});
+  ]
+}, pino.multistream([
+  { stream: process.stdout },
+  { stream: fs.createWriteStream('/tmp/backend-error.log', { flags: 'a' }) }
+]));
