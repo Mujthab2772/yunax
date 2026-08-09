@@ -12,7 +12,6 @@ const ForgotPasswordPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetToken, setResetToken] = useState('');
-  const [devOtp, setDevOtp] = useState('');
   
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -45,9 +44,6 @@ const ForgotPasswordPage = () => {
       }
       
       setSuccess(data.message || 'Verification code sent to your email.');
-      if (data.devOtp) {
-        setDevOtp(data.devOtp);
-      }
       setStep('otp');
     } catch (err) {
       setError(err.message || 'Could not send verification code.');
@@ -280,14 +276,7 @@ const ForgotPasswordPage = () => {
                       </div>
                     </div>
 
-                    {devOtp && (
-                      <div className="rounded-2xl bg-sky-50 border border-sky-100 p-4 text-center">
-                        <span className="text-xs text-sky-700 font-medium block mb-1">Development mode helper:</span>
-                        <code className="text-sm font-bold bg-sky-100/80 px-3 py-1 rounded-md text-sky-800 tracking-wider">
-                          {devOtp}
-                        </code>
-                      </div>
-                    )}
+
 
                     <div className="flex gap-4">
                       <button

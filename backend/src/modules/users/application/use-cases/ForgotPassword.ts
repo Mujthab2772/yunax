@@ -48,8 +48,6 @@ export class ForgotPassword {
     } catch (e) {
       console.error('Failed to send reset email:', e);
     }
-    
-    // Pass OTP to controller for dev mode
-    return process.env.NODE_ENV !== 'production' ? otp : undefined;
+    return undefined;
   }
 }

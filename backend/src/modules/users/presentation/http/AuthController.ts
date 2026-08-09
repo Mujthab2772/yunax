@@ -118,11 +118,10 @@ export class AuthController {
 
   public forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      let devOtp;
       if (this.forgotPasswordUseCase) {
-        devOtp = await this.forgotPasswordUseCase.execute(req.body.email);
+        await this.forgotPasswordUseCase.execute(req.body.email);
       }
-      res.status(200).json({ message: 'If the account exists, a password reset email has been sent.', devOtp });
+      res.status(200).json({ message: 'If the account exists, a password reset email has been sent.' });
     } catch (error) {
       next(error);
     }
