@@ -13,8 +13,7 @@ export class ForgotPassword {
   public async execute(email: string): Promise<string | undefined> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      // Do not reveal if email exists or not
-      return;
+      throw new ApiError(404, 'User not found.', 'USER_NOT_FOUND');
     }
 
     // Generate secure 6-digit OTP
@@ -50,7 +49,7 @@ export class ForgotPassword {
       console.error('Failed to send reset email:', e);
     }
     
-    // Pass OTP to controller for dev mode (optional, only if in dev)
-    return process.env.NODE_ENV === 'development' ? otp : undefined;
+    // Pass OTP to controller for dev mode
+    return process.env.NODE_ENV !== 'production' ? otp : undefined;
   }
 }
