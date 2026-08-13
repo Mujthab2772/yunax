@@ -13,7 +13,7 @@ export class ForgotPassword {
   public async execute(email: string): Promise<string | undefined> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      throw new ApiError(404, 'User not found.', 'USER_NOT_FOUND');
+      throw new ApiError(404, 'User not found.');
     }
 
     // Generate secure 6-digit OTP
