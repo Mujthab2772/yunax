@@ -6,7 +6,7 @@ import { Heart, Star } from 'lucide-react';
 import { API } from './lib/api';
 import { defaultProducts, findDefaultProductBySlug } from './lib/defaultProducts';
 import { addToWishlist, getAuthToken, loadWishlist, removeFromWishlist } from './lib/wishlist';
-import { addToCart } from './lib/cart';
+import { addToCart, fetchCart } from './lib/cart';
 
 const specLabels = {
   brand: 'Brand',
@@ -44,6 +44,8 @@ const ProductDetailPage = ({ slug }) => {
   const [isHoveringImage, setIsHoveringImage] = useState(false);
   const [isHoveringControls, setIsHoveringControls] = useState(false);
   const [wishlistSlugs, setWishlistSlugs] = useState([]);
+  const [isInCart, setIsInCart] = useState(false);
+
   
   const [reviewData, setReviewData] = useState({ reviews: [], averageRating: 0, totalReviews: 0 });
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
@@ -163,6 +165,19 @@ const ProductDetailPage = ({ slug }) => {
       .then((items) => setWishlistSlugs(items.map((item) => item.slug)))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!product) return;
+    const checkCart = async () => {
+      const cartItems = await fetchCart();
+      const pId = product._id || product.id;
+      setIsInCart(cartItems.some(item => item.productId === pId));
+    };
+    checkCart();
+    const handleCartUpdate = () => checkCart();
+    window.addEventListener('cart-updated', handleCartUpdate);
+    return () => window.removeEventListener('cart-updated', handleCartUpdate);
+  }, [product?.id, product?._id]);
 
   const toggleWishlist = async () => {
     if (!product) return;
@@ -423,15 +438,17 @@ const ProductDetailPage = ({ slug }) => {
             ) : null}
             <div className="flex flex-wrap gap-3 pt-2">
               <button
-                className={`px-5 py-3 rounded-full ${
+                className={`px-5 py-3 rounded-full transition ${
                   product.stock === 0 
                     ? 'bg-slate-300 text-slate-500 cursor-not-allowed' 
+                    : isInCart
+                    ? 'bg-emerald-600 text-white cursor-default'
                     : 'bg-slate-900 text-white hover:bg-slate-800'
                 }`}
-                onClick={() => handleAddToCart(product)}
-                disabled={product.stock === 0}
+                onClick={() => !isInCart && handleAddToCart(product)}
+                disabled={product.stock === 0 || isInCart}
               >
-                {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                {product.stock === 0 ? 'Out of Stock' : isInCart ? 'Already in Cart' : 'Add to Cart'}
               </button>
               <button
                 className={`px-5 py-3 rounded-full border ${

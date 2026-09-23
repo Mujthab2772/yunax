@@ -1,9 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, CheckCircle, Eye, EyeOff, Key, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import { API } from './lib/api';
+
+const getStrength = (pass) => {
+  if (!pass) return { score: 0, label: '', color: 'bg-slate-200', text: 'text-slate-400' };
+  let s = 0;
+  if (pass.length >= 8) s += 1;
+  if (pass.length >= 12) s += 1;
+  if (/[A-Z]/.test(pass)) s += 1;
+  if (/[0-9]/.test(pass)) s += 1;
+  if (/[^A-Za-z0-9]/.test(pass)) s += 1;
+  
+  switch(s) {
+    case 0:
+    case 1: return { score: 1, label: 'Weak', color: 'bg-rose-500', text: 'text-rose-500' };
+    case 2: return { score: 2, label: 'Fair', color: 'bg-orange-500', text: 'text-orange-500' };
+    case 3: return { score: 3, label: 'Good', color: 'bg-amber-500', text: 'text-amber-500' };
+    case 4: return { score: 4, label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-500' };
+    case 5: return { score: 5, label: 'Very Strong', color: 'bg-emerald-600', text: 'text-emerald-600' };
+    default: return { score: 0, label: '', color: 'bg-slate-200', text: 'text-slate-400' };
+  }
+};
 
 const ForgotPasswordPage = () => {
   const [step, setStep] = useState('email'); // 'email' | 'otp' | 'password' | 'success'
@@ -20,6 +40,21 @@ const ForgotPasswordPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [userNotFound, setUserNotFound] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    let interval = null;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (interval) {
+      clearInterval(interval);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendTimer]);
 
   // Step 1: Send OTP to Email
   const handleSendOtp = async (e) => {
@@ -45,6 +80,7 @@ const ForgotPasswordPage = () => {
       
       setSuccess(data.message || 'Verification code sent to your email.');
       setStep('otp');
+      setResendTimer(60);
     } catch (err) {
       setError(err.message || 'Could not send verification code.');
     } finally {
@@ -89,8 +125,8 @@ const ForgotPasswordPage = () => {
     setError('');
     setSuccess('');
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
 
@@ -297,11 +333,13 @@ const ForgotPasswordPage = () => {
                     <div className="text-center pt-2">
                       <button
                         type="button"
-                        disabled={loading}
+                        disabled={loading || resendTimer > 0}
                         onClick={handleSendOtp}
                         className="text-sm font-semibold text-slate-500 transition hover:text-slate-900 hover:underline disabled:opacity-50 disabled:no-underline"
                       >
-                        Didn't receive the code? Resend OTP
+                        {resendTimer > 0 
+                          ? `Resend OTP in ${resendTimer}s` 
+                          : "Didn't receive the code? Resend OTP"}
                       </button>
                     </div>
                   </motion.form>
@@ -319,7 +357,7 @@ const ForgotPasswordPage = () => {
                   >
                     <div className="space-y-2">
                       <label className="ml-1 text-xs font-bold uppercase tracking-wider text-slate-500">New Password</label>
-                      <div className="relative">
+                      <div className="relative group">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input
                           type={showPassword ? 'text' : 'password'}
@@ -333,6 +371,24 @@ const ForgotPasswordPage = () => {
                           {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                       </div>
+                      {password && (
+                        <div className="mt-2 space-y-1.5 ml-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500">Password strength</span>
+                            <span className={`font-medium ${getStrength(password).text}`}>{getStrength(password).label}</span>
+                          </div>
+                          <div className="flex gap-1 h-1.5 w-full rounded-full overflow-hidden bg-slate-100">
+                            {[1, 2, 3, 4, 5].map((level) => (
+                              <div
+                                key={level}
+                                className={`flex-1 transition-colors duration-300 ${
+                                  level <= getStrength(password).score ? getStrength(password).color : 'bg-transparent'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-2">
