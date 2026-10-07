@@ -2,6 +2,19 @@ import { useEffect, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
+import Swal from 'sweetalert2';
+
+const toast = (icon, title, text) =>
+  Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon,
+    title,
+    text,
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+  });
 
 const emptyForm = { name: '', image: '', description: '' };
 
@@ -9,7 +22,6 @@ const AdminCategories = () => {
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState('');
-  const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
 
   const token = (() => {
@@ -24,17 +36,16 @@ const AdminCategories = () => {
   };
 
   useEffect(() => {
-    load().catch((err) => setError(err.message));
+    load().catch((err) => toast('error', 'Failed to load categories', err.message));
   }, []);
 
   const submit = async (e) => {
     e.preventDefault();
     if (!token) {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       return;
     }
     try {
-      setError('');
       const res = await fetch(`${API}/categories${editingId ? `/${editingId}` : ''}`, {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -45,8 +56,9 @@ const AdminCategories = () => {
       setForm(emptyForm);
       setEditingId('');
       await load();
+      toast('success', editingId ? 'Category updated' : 'Category created', `"${form.name}" has been saved.`);
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Save failed', err.message);
     }
   };
 
@@ -58,7 +70,7 @@ const AdminCategories = () => {
       setUploading(true);
       const formData = new FormData();
       formData.append('image', file);
-      
+
       const res = await fetch(`${API}/products/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -66,18 +78,32 @@ const AdminCategories = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || 'Upload failed');
-      
+
       setForm(f => ({ ...f, image: data.url }));
+      toast('success', 'Image uploaded', 'Category image has been set.');
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Upload failed', err.message);
     } finally {
       setUploading(false);
     }
   };
 
   const remove = async (category) => {
-    if (!token) return setError('Admin login required.');
-    if (!window.confirm(`Delete ${category.name}?`)) return;
+    if (!token) {
+      toast('error', 'Not authorised', 'Admin login required.');
+      return;
+    }
+    const result = await Swal.fire({
+      title: `Delete "${category.name}"?`,
+      text: 'This category will be permanently removed.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#0f172a',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'Yes, delete it',
+      cancelButtonText: 'Cancel',
+    });
+    if (!result.isConfirmed) return;
     try {
       const res = await fetch(`${API}/categories/${category._id || category.id}`, {
         method: 'DELETE',
@@ -86,8 +112,9 @@ const AdminCategories = () => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to delete category');
       await load();
+      toast('success', 'Category deleted', `"${category.name}" has been removed.`);
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Delete failed', err.message);
     }
   };
 
@@ -102,8 +129,6 @@ const AdminCategories = () => {
 
   return (
     <AdminLayout title="Categories" description="Add, edit, and organize product categories with optional images.">
-      {error && <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
-
       <form onSubmit={submit} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
           <input className="rounded-xl border border-slate-200 px-4 py-3 md:col-span-2" value={form.name} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} placeholder="Category name" required />

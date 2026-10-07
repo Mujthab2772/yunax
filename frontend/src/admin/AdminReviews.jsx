@@ -2,11 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Star, Trash2, XCircle } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
+import Swal from 'sweetalert2';
+
+const toast = (icon, title, text) =>
+  Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon,
+    title,
+    text,
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+  });
 
 const AdminReviews = () => {
   const [reviews, setReviews] = useState([]);
   const [filter, setFilter] = useState('all');
-  const [error, setError] = useState('');
   const [loadingId, setLoadingId] = useState('');
 
   const token = (() => {
@@ -22,7 +34,7 @@ const AdminReviews = () => {
   };
 
   useEffect(() => {
-    load().catch((err) => setError(err.message));
+    load().catch((err) => toast('error', 'Failed to load reviews', err.message));
   }, []);
 
   const filtered = useMemo(
@@ -41,15 +53,26 @@ const AdminReviews = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update review');
       setReviews((current) => current.map((item) => ((item._id || item.id) === (data._id || data.id) ? data : item)));
+      toast('success', `Review ${status}`, `The review has been marked as ${status}.`);
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Update failed', err.message);
     } finally {
       setLoadingId('');
     }
   };
 
   const remove = async (review) => {
-    if (!window.confirm('Delete this review?')) return;
+    const result = await Swal.fire({
+      title: 'Delete Review?',
+      text: 'This review will be permanently removed.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#0f172a',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'Yes, delete it',
+      cancelButtonText: 'Cancel',
+    });
+    if (!result.isConfirmed) return;
     try {
       setLoadingId(review._id || review.id);
       const res = await fetch(`${API}/reviews/${review._id || review.id}`, {
@@ -59,8 +82,9 @@ const AdminReviews = () => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to delete review');
       setReviews((current) => current.filter((item) => (item._id || item.id) !== (review._id || review.id)));
+      toast('success', 'Review deleted', 'The review has been permanently removed.');
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Delete failed', err.message);
     } finally {
       setLoadingId('');
     }
@@ -68,8 +92,6 @@ const AdminReviews = () => {
 
   return (
     <AdminLayout title="Reviews" description="Approve customer reviews and remove abusive or irrelevant feedback.">
-      {error && <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
-
       <div className="flex flex-wrap gap-2">
         {['all', 'pending', 'approved', 'rejected'].map((option) => (
           <button

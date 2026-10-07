@@ -39,14 +39,7 @@ window.fetch = async function(url, options = {}) {
   // Always include cookies for cross-origin or same-origin backend calls
   options.credentials = 'include';
   
-  // Remove Authorization header since we now use HttpOnly cookies
-  if (options.headers) {
-    if (options.headers instanceof Headers) {
-      options.headers.delete('Authorization');
-    } else if (typeof options.headers === 'object') {
-      delete options.headers['Authorization'];
-    }
-  }
+  // We no longer strip the Authorization header, allowing it as a fallback.
   
   return originalFetch.call(this, url, options);
 };

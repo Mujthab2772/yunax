@@ -1,13 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminLayout from './AdminLayout';
-
 import { API } from '../lib/api';
+import Swal from 'sweetalert2';
+
+const toast = (icon, title, text) =>
+  Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon,
+    title,
+    text,
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+  });
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user' });
   const [editingId, setEditingId] = useState('');
   const [editForm, setEditForm] = useState({ name: '', email: '', password: '', role: 'user' });
@@ -38,23 +49,22 @@ const AdminUsers = () => {
         const data = await res.json();
         setUsers(data || []);
       } catch (err) {
-        setError(err.message);
+        toast('error', 'Failed to load users', err.message);
       } finally {
         setLoading(false);
       }
     };
     if (token) load();
     else {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       setLoading(false);
     }
   }, [token]);
 
   const createUser = async (e) => {
     e.preventDefault();
-    setError('');
     if (!token) {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       return;
     }
     try {
@@ -70,8 +80,9 @@ const AdminUsers = () => {
       if (!res.ok) throw new Error(data.error || 'Failed to create user');
       setUsers((u) => [data, ...u]);
       setForm({ name: '', email: '', password: '', role: 'user' });
+      toast('success', 'User created', `${data.name || 'New user'} has been added successfully.`);
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Create failed', err.message);
     }
   };
 
@@ -91,9 +102,8 @@ const AdminUsers = () => {
   };
 
   const saveEdit = async () => {
-    setError('');
     if (!token) {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       return;
     }
 
@@ -110,18 +120,28 @@ const AdminUsers = () => {
       if (!res.ok) throw new Error(data.error || 'Failed to update user');
       setUsers((current) => current.map((user) => ((user.id || user._id) === editingId ? data : user)));
       cancelEdit();
+      toast('success', 'User updated', 'Account details have been saved.');
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Update failed', err.message);
     }
   };
 
   const deleteUser = async (id) => {
-    setError('');
     if (!token) {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       return;
     }
-    if (!window.confirm('Delete this user account?')) return;
+    const result = await Swal.fire({
+      title: 'Delete User Account?',
+      text: 'This account will be permanently removed.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#0f172a',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel',
+    });
+    if (!result.isConfirmed) return;
 
     try {
       const res = await fetch(`${API}/admin/users/${id}`, {
@@ -132,15 +152,14 @@ const AdminUsers = () => {
       if (!res.ok) throw new Error(data.error || 'Failed to delete user');
       setUsers((current) => current.filter((user) => (user.id || user._id) !== id));
       if (editingId === id) cancelEdit();
+      toast('success', 'User deleted', 'The account has been permanently removed.');
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Delete failed', err.message);
     }
   };
 
   return (
     <AdminLayout title="Users" description="Create and manage user accounts.">
-      {error && <div className="text-red-600 text-sm">{error}</div>}
-
       <section className="grid lg:grid-cols-[1fr_1.2fr] gap-6 items-start">
         <form className="glass border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4" onSubmit={createUser}>
           <div className="flex items-center justify-between">

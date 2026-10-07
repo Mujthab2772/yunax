@@ -2,16 +2,35 @@ import { useEffect, useRef, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
+import Swal from 'sweetalert2';
 
-const emptyProduct = {
-  name: '',
-  slug: '',
-  category: '',
-  priceCents: '',
-  stock: '',
-  images: [],
-  description: '',
-};
+// ─── Shared toast helper ───────────────────────────────────────────────────────
+const toast = (icon, title, text) =>
+  Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon,
+    title,
+    text,
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+  });
+
+// ─── Confirmation modal helper ─────────────────────────────────────────────────
+const confirm = (title, text) =>
+  Swal.fire({
+    title,
+    text,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#0f172a',
+    cancelButtonColor: '#94a3b8',
+    confirmButtonText: 'Yes, delete it',
+    cancelButtonText: 'Cancel',
+  });
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 const priceBands = [
   { value: 'all', label: 'All prices' },
@@ -160,7 +179,6 @@ const ImagePicker = ({ images, onAddFiles, onAddUrl, onRemoveImage, inputIdPrefi
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [priceFilter, setPriceFilter] = useState('all');
@@ -179,14 +197,13 @@ const AdminProducts = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        setError('');
         setLoading(true);
         const res = await fetch(`${API}/products`);
         if (!res.ok) throw new Error('Failed to load products');
         const apiData = await res.json();
         setProducts(Array.isArray(apiData) ? apiData : []);
       } catch (err) {
-        setError(err.message);
+        toast('error', 'Failed to load products', err.message);
         setProducts([]);
       } finally {
         setLoading(false);
@@ -205,16 +222,16 @@ const AdminProducts = () => {
 
   const deleteProduct = async (id) => {
     if (!token) {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       return;
     }
-    if (!window.confirm('Delete this product?')) return;
+    const result = await confirm('Delete Product?', 'This action cannot be undone.');
+    if (!result.isConfirmed) return;
+
     try {
       const res = await fetch(`${API}/products/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         const data = await res.json();
@@ -228,8 +245,9 @@ const AdminProducts = () => {
       }
       setProducts((p) => p.filter((item) => (item._id || item.id) !== id));
       setSelectedIds((current) => current.filter((selectedId) => selectedId !== id));
+      toast('success', 'Product deleted', 'The product has been removed from the catalog.');
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Delete failed', err.message);
     }
   };
 
@@ -264,20 +282,19 @@ const AdminProducts = () => {
 
   const applyBulkChanges = async () => {
     if (!token) {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       return;
     }
     if (!selectedIds.length) {
-      setError('Select at least one product to modify.');
+      toast('warning', 'Nothing selected', 'Select at least one product to modify.');
       return;
     }
     if (!bulkCategory && !bulkPrice) {
-      setError('Choose a category or set a new price before applying changes.');
+      toast('warning', 'No changes specified', 'Choose a category or set a new price before applying changes.');
       return;
     }
 
     try {
-      setError('');
       const nextPriceCents = bulkPrice ? Math.round(Number(bulkPrice) * 100) : null;
       const selectedProducts = products.filter((product) => selectedIds.includes(product._id || product.id));
 
@@ -305,34 +322,44 @@ const AdminProducts = () => {
       setBulkCategory('');
       setBulkPrice('');
       setSelectedIds([]);
+      toast('success', 'Bulk update applied', `${selectedProducts.length} product(s) updated successfully.`);
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Bulk update failed', err.message);
     }
   };
 
   const deleteSelectedProducts = async () => {
     if (!token) {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       return;
     }
     if (!selectedIds.length) {
-      setError('Select at least one product to delete.');
+      toast('warning', 'Nothing selected', 'Select at least one product to delete.');
       return;
     }
-    if (!window.confirm(`Delete ${selectedIds.length} selected product(s)?`)) return;
+
+    const result = await Swal.fire({
+      title: `Delete ${selectedIds.length} Product${selectedIds.length > 1 ? 's' : ''}?`,
+      text: 'This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#0f172a',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'Yes, delete all',
+      cancelButtonText: 'Cancel',
+    });
+    if (!result.isConfirmed) return;
 
     try {
-      setError('');
       const selectedProducts = products.filter((product) => selectedIds.includes(product._id || product.id));
+      const count = selectedProducts.length;
 
       for (const product of selectedProducts) {
         const id = product._id || product.id;
 
         const res = await fetch(`${API}/products/${id}`, {
           method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -342,15 +369,14 @@ const AdminProducts = () => {
       }
 
       setSelectedIds([]);
+      toast('success', 'Products deleted', `${count} product(s) removed from the catalog.`);
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Delete failed', err.message);
     }
   };
 
   return (
     <AdminLayout title="Products" description="Create, edit, and organize the YunaX catalog.">
-      {error && <div className="text-red-600 text-sm">{error}</div>}
-
       <section className="flex items-center justify-between gap-6 bg-slate-900 text-white rounded-3xl p-8 shadow-xl shadow-slate-200">
         <div className="space-y-2">
           <h2 className="text-2xl font-bold tracking-tight">Expand the Inventory</h2>

@@ -33,7 +33,7 @@ export class AuthController {
     try {
       const result = await this.loginUser.execute(req.body);
       this.setTokenCookie(res, result.token);
-      res.status(200).json({ user: result.user });
+      res.status(200).json({ user: result.user, token: result.token });
     } catch (error) {
       next(error);
     }
@@ -83,7 +83,7 @@ export class AuthController {
         throw new ApiError(403, 'This account is not authorized for admin access.');
       }
       this.setTokenCookie(res, result.token);
-      res.status(200).json({ user: result.user });
+      res.status(200).json({ user: result.user, token: result.token });
     } catch (error) {
       next(error);
     }

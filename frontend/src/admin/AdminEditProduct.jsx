@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Loader2, Trash2, Plus } from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import { API } from '../lib/api';
+import Swal from 'sweetalert2';
+
+const toast = (icon, title, text) =>
+  Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon,
+    title,
+    text,
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+  });
 
 const emptyProduct = {
   name: '',
@@ -99,8 +112,9 @@ const AdminEditProduct = () => {
 
       const urls = await Promise.all(uploadPromises);
       setForm(f => ({ ...f, images: [...f.images, ...urls] }));
+      toast('success', 'Images uploaded', `${urls.length} image(s) added.`);
     } catch (err) {
-      setError(err.message);
+      toast('error', 'Upload failed', err.message);
     } finally {
       setUploading(false);
     }
@@ -117,7 +131,7 @@ const AdminEditProduct = () => {
     setSaving(true);
 
     if (!token) {
-      setError('Admin login required.');
+      toast('error', 'Not authorised', 'Admin login required.');
       setSaving(false);
       return;
     }
@@ -142,9 +156,10 @@ const AdminEditProduct = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update product');
 
-      // Success
+      await toast('success', 'Product saved!', `"${form.name}" has been updated successfully.`);
       window.location.href = '/admin/products';
     } catch (err) {
+      toast('error', 'Save failed', err.message);
       setError(err.message);
     } finally {
       setSaving(false);
