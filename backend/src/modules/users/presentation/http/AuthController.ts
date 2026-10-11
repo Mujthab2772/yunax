@@ -23,7 +23,7 @@ export class AuthController {
     try {
       const result = await this.registerUser.execute(req.body);
       this.setTokenCookie(res, result.token);
-      res.status(201).json({ user: result.user });
+      res.status(201).json({ user: result.user, token: result.token });
     } catch (error) {
       next(error); 
     }
@@ -97,7 +97,7 @@ export class AuthController {
       const body = { ...req.body, role: 'admin' };
       const result = await this.registerUser.execute(body);
       this.setTokenCookie(res, result.token);
-      res.status(201).json({ user: result.user });
+      res.status(201).json({ user: result.user, token: result.token });
     } catch (error) {
       next(error);
     }
@@ -105,10 +105,11 @@ export class AuthController {
 
   public logout = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const isProduction = process.env.NODE_ENV === 'production';
       res.clearCookie('jwt', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict'
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax'
       });
       res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
@@ -152,10 +153,11 @@ export class AuthController {
 
   private setTokenCookie(res: Response, token: string) {
     if (!token) return;
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('jwt', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
   }

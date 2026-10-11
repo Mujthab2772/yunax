@@ -93,8 +93,12 @@ const ProductDetailPage = ({ slug }) => {
       setTimeout(() => setToast(''), 1500);
       return true;
     } catch (err) {
-      setToastError('Could not add to cart. Please try again.');
-      setTimeout(() => setToastError(''), 1800);
+      if (err.message?.includes('401') || err.message?.includes('log in')) {
+        setToastError('Please log in to add items to your cart.');
+      } else {
+        setToastError(err.message || 'Could not add to cart. Please try again.');
+      }
+      setTimeout(() => setToastError(''), 2000);
       return false;
     }
   };
@@ -456,9 +460,11 @@ const ProductDetailPage = ({ slug }) => {
                     ? 'border-slate-200 text-slate-400 cursor-not-allowed' 
                     : 'border-slate-200 text-slate-800 hover:border-slate-300'
                 }`}
-                onClick={() => {
-                  handleAddToCart(product);
-                  window.location.href = '/cart';
+                onClick={async () => {
+                  const added = await handleAddToCart(product);
+                  if (added) {
+                    window.location.href = '/cart';
+                  }
                 }}
                 disabled={product.stock === 0}
               >
@@ -645,7 +651,7 @@ const ProductDetailPage = ({ slug }) => {
                       className="rounded-full bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800"
                       onClick={(e) => {
                         e.stopPropagation();
-                        addProductToCart(item);
+                        handleAddToCart(item);
                       }}
                     >
                       Add
